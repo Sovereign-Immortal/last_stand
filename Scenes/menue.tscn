@@ -1,0 +1,92 @@
+[gd_scene format=3 uid="uid://crahr2lbmpbyb"]
+
+[ext_resource type="StyleBox" uid="uid://dgyrm4qtxfd75" path="res://btn styles/menue buttons.tres" id="1_wkpcg"]
+
+[node name="Menue" type="Control" unique_id=1013826101]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=596054406]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -51.0
+offset_top = -73.0
+offset_right = 51.0
+offset_bottom = 73.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="Button" type="Button" parent="VBoxContainer" unique_id=1596991128]
+layout_mode = 2
+tooltip_text = "The world.. well  there is some ..hope. 
+As long as I walk there will be a road for me to step on."
+theme_override_colors/font_color = Color(0, 0.4392157, 0.14117648, 1)
+theme_override_colors/font_focus_color = Color(0.2264489, 0.28798133, 5.7756904e-07, 1)
+theme_override_colors/font_pressed_color = Color(0.27563187, 0.5282055, 0.25139725, 1)
+theme_override_colors/font_hover_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.875, 0.875, 0.875, 0.5)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_focus_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.4)
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("1_wkpcg")
+action_mode = 0
+text = "PLAY!"
+
+[node name="Button2" type="Button" parent="VBoxContainer" unique_id=1597378391]
+layout_mode = 2
+tooltip_text = "The world.. well  truth is worth more than my sanity."
+theme_override_colors/font_color = Color(0, 0.4392157, 0.14117648, 1)
+theme_override_colors/font_focus_color = Color(0.2264489, 0.28798133, 5.7756904e-07, 1)
+theme_override_colors/font_pressed_color = Color(0.27563187, 0.5282055, 0.25139725, 1)
+theme_override_colors/font_hover_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.875, 0.875, 0.875, 0.5)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_focus_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.4)
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("1_wkpcg")
+action_mode = 0
+text = "TRUTH!!"
+
+[node name="Button3" type="Button" parent="VBoxContainer" unique_id=1140318580]
+layout_mode = 2
+tooltip_text = "The world.. well  it is not worth saving.."
+theme_override_colors/font_color = Color(0, 0.4392157, 0.14117648, 1)
+theme_override_colors/font_focus_color = Color(0.2264489, 0.28798133, 5.7756904e-07, 1)
+theme_override_colors/font_pressed_color = Color(0.27563187, 0.5282055, 0.25139725, 1)
+theme_override_colors/font_hover_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.875, 0.875, 0.875, 0.5)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_focus_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.4)
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("1_wkpcg")
+action_mode = 0
+text = "QUIT!?"

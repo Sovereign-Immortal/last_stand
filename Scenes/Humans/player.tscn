@@ -1,0 +1,19 @@
+[gd_scene format=3 uid="uid://cmrkcwcuxr3ux"]
+
+[ext_resource type="Texture2D" uid="uid://bd8q5leetrtr3" path="res://Last Stand Assets/Characters/PNG/Man Blue/manBlue_stand.png" id="1_aq10e"]
+[ext_resource type="Script" uid="uid://k3vcgdvpx3p2" path="res://Scenes/Humans/player.gd" id="1_wykvt"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_wykvt"]
+radius = 9.0
+height = 34.0
+
+[node name="Player" type="CharacterBody2D" unique_id=518327402]
+scale = Vector2(0.75, 0.75)
+script = ExtResource("1_wykvt")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1044625850]
+position = Vector2(-2, -1)
+shape = SubResource("CapsuleShape2D_wykvt")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=218354249]
+texture = ExtResource("1_aq10e")
