@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://d2kh60kqx1vva"]
+
+[ext_resource type="PackedScene" uid="uid://bc5yst7heysf2" path="res://Scenes/Zombies/zombie_base.tscn" id="1_tfut2"]
+[ext_resource type="Texture2D" uid="uid://dcw4awq0buddf" path="res://Last Stand Assets/Characters/PNG/Robot 1/robot1_hold.png" id="2_5j65t"]
+
+[node name="Cybord_Zombie" unique_id=1963313864 instance=ExtResource("1_tfut2")]
+strength = 5.0
+zombie_type = "cyborg zombie"
+move_speed = 250.0
+sight_range = 800.0
+formation_radius = 200.0
+
+[node name="image" parent="." index="0" unique_id=957536577]
+texture = ExtResource("2_5j65t")

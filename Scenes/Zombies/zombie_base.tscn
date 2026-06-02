@@ -1,0 +1,40 @@
+[gd_scene format=3 uid="uid://bc5yst7heysf2"]
+
+[ext_resource type="Script" uid="uid://b6mk8f5e5h7k" path="res://Scenes/Zombies/zombie_base.gd" id="1_yo1c4"]
+[ext_resource type="Texture2D" uid="uid://e6bdaapi1ljj" path="res://Last Stand Assets/Characters/PNG/Zombie 1/zoimbie1_hold.png" id="2_xmdm8"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_q6bnc"]
+radius = 14.0
+height = 42.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_6orrn"]
+radius = 200.0
+
+[node name="ZombieBase" type="CharacterBody2D" unique_id=1963313864]
+collision_layer = 2
+collision_mask = 3
+floor_stop_on_slope = false
+floor_block_on_wall = false
+script = ExtResource("1_yo1c4")
+strength = 2.0
+move_speed = 200.0
+sight_range = 100.0
+formation_radius = 500.0
+metadata/_edit_group_ = true
+
+[node name="image" type="Sprite2D" parent="." unique_id=957536577]
+texture = ExtResource("2_xmdm8")
+
+[node name="shape" type="CollisionShape2D" parent="." unique_id=212570703]
+position = Vector2(1, 1)
+shape = SubResource("CapsuleShape2D_q6bnc")
+
+[node name="DetectionArea" type="Area2D" parent="." unique_id=1364412268]
+collision_layer = 2
+collision_mask = 3
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectionArea" unique_id=488563144]
+shape = SubResource("CircleShape2D_6orrn")
+
+[connection signal="body_entered" from="DetectionArea" to="." method="_on_detection_area_body_entered"]
+[connection signal="body_exited" from="DetectionArea" to="." method="_on_detection_area_body_exited"]

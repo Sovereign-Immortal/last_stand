@@ -7,8 +7,9 @@
 radius = 9.0
 height = 34.0
 
-[node name="Player" type="CharacterBody2D" unique_id=518327402]
+[node name="Player" type="CharacterBody2D" unique_id=518327402 groups=["player"]]
 scale = Vector2(0.75, 0.75)
+collision_mask = 2
 script = ExtResource("1_wykvt")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1044625850]
