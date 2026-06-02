@@ -10,7 +10,7 @@ extends CharacterBody2D
 func _physics_process(delta):
 	
 	# input 
-	var input_vector = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var input_vector = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down").normalized()
 	
 	if input_vector != Vector2.ZERO:
 		velocity = velocity.move_toward(input_vector * MAX_SPEED, ACCELERATION * delta)
