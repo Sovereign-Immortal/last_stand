@@ -12,14 +12,11 @@ radius = 200.0
 
 [node name="ZombieBase" type="CharacterBody2D" unique_id=1963313864]
 collision_layer = 2
-collision_mask = 3
+collision_mask = 7
 floor_stop_on_slope = false
 floor_block_on_wall = false
 script = ExtResource("1_yo1c4")
 strength = 2.0
-move_speed = 200.0
-sight_range = 100.0
-formation_radius = 500.0
 metadata/_edit_group_ = true
 
 [node name="image" type="Sprite2D" parent="." unique_id=957536577]

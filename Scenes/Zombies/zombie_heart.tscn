@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://zombie_heart_01"]
+
+[ext_resource type="PackedScene" uid="uid://bc5yst7heysf2" path="res://Scenes/Zombies/zombie_base.tscn" id="1_hz"]
+[ext_resource type="Texture2D" uid="uid://cocv7t246pyvx" path="res://Last Stand Assets/Characters/PNG/Zombie 1/zoimbie1_hold.png" id="2_hz"]
+
+[node name="ZombieHeart" unique_id=1963313864 instance=ExtResource("1_hz")]
+strength = 4.0
+zombie_type = "heart"
+move_speed = 100.0
+sight_range = 400.0
+max_health = 180.0
+damage = 15
+score_value = 25
+
+[node name="image" parent="." index="0" unique_id=957536577]
+self_modulate = Color(1.0, 0.35, 0.5, 1.0)
+scale = Vector2(1.2, 1.2)
+texture = ExtResource("2_hz")
+
+[node name="HealParticles" type="CPUParticles2D" parent="." index="4"]
+amount = 12
+lifetime = 1.2
+speed_scale = 0.8
+draw_order = 1
+emission_shape = 1
+emission_sphere_radius = 24.0
+gravity = Vector2(0, -20)
+scale_amount_min = 3.0
+scale_amount_max = 6.0
+color = Color(1, 0.35, 0.6, 0.6)

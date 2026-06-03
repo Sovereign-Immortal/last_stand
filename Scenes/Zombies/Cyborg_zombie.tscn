@@ -4,11 +4,15 @@
 [ext_resource type="Texture2D" uid="uid://dcw4awq0buddf" path="res://Last Stand Assets/Characters/PNG/Robot 1/robot1_hold.png" id="2_5j65t"]
 
 [node name="Cybord_Zombie" unique_id=1963313864 instance=ExtResource("1_tfut2")]
-strength = 5.0
+strength = 3.0
 zombie_type = "cyborg zombie"
-move_speed = 250.0
-sight_range = 800.0
-formation_radius = 200.0
+move_speed = 210.0
+sight_range = 350.0
+max_health = 180.0
+damage = 25
+attack_range = 34.0
+attack_cooldown = 0.7
+score_value = 50
 
 [node name="image" parent="." index="0" unique_id=957536577]
 texture = ExtResource("2_5j65t")

@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://pause_menu_01"]
+
+[ext_resource type="Script" path="res://Scenes/UI/pause_menu.gd" id="1_pm"]
+[ext_resource type="StyleBox" uid="uid://dgyrm4qtxfd75" path="res://btn styles/menue buttons.tres" id="2_pm"]
+
+[node name="PauseMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pm")
+
+[node name="BG" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0, 0.0, 0.05, 0.82)
+mouse_filter = 0
+
+[node name="VBox" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -70.0
+offset_right = 100.0
+offset_bottom = 70.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="PausedLabel" type="Label" parent="VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+text = "PAUSED"
+
+[node name="ResumeButton" type="Button" parent="VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.44, 0.14, 1)
+theme_override_colors/font_hover_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = ExtResource("2_pm")
+action_mode = 0
+text = "RESUME"
+
+[node name="MenuButton" type="Button" parent="VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.44, 0.14, 1)
+theme_override_colors/font_hover_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = ExtResource("2_pm")
+action_mode = 0
+text = "MAIN MENU"
+
+[connection signal="pressed" from="VBox/ResumeButton" to="." method="_on_resume_pressed"]
+[connection signal="pressed" from="VBox/MenuButton" to="." method="_on_menu_pressed"]

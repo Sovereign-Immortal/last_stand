@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://bullet_pickup_01"]
+
+[ext_resource type="Script" path="res://Scenes/Pickups/bullet_pickup.gd" id="1_bp"]
+[ext_resource type="Texture2D" path="res://Last Stand Assets/Characters/PNG/weapon_gun.png" id="2_bp"]
+
+[sub_resource type="CircleShape2D" id="circle"]
+radius = 14.0
+
+[node name="BulletPickup" type="Area2D"]
+collision_layer = 8
+collision_mask = 1
+script = ExtResource("1_bp")
+
+[node name="GlowRect" type="ColorRect" parent="."]
+offset_left = -10.0
+offset_top = -10.0
+offset_right = 10.0
+offset_bottom = 10.0
+color = Color(1.0, 0.8, 0.0, 0.35)
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(1.2, 1.2)
+texture = ExtResource("2_bp")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("circle")
+
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]

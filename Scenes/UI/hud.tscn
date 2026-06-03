@@ -1,0 +1,150 @@
+[gd_scene format=3 uid="uid://b08bsld3y7mlk"]
+
+[ext_resource type="Script" uid="uid://dpywr8lb5ncpe" path="res://Scenes/UI/hud.gd" id="1_hud"]
+[ext_resource type="PackedScene" path="res://Scenes/UI/pause_menu.tscn" id="2_pm"]
+
+[node name="HUD" type="CanvasLayer" unique_id=4796025]
+layer = 10
+script = ExtResource("1_hud")
+
+[node name="DamageFlash" type="ColorRect" parent="." unique_id=74020375]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.8, 0, 0, 0.5)
+
+[node name="AnnouncementLabel" type="Label" parent="." unique_id=1768494241]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = -40.0
+offset_right = 120.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.2, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ComboLabel" type="Label" parent="." unique_id=1821281985]
+visible = false
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.65
+anchor_right = 0.5
+anchor_bottom = 0.65
+offset_left = -80.0
+offset_top = -12.0
+offset_right = 80.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.5, 0, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
+text = "x2  COMBO!"
+horizontal_alignment = 1
+
+[node name="HUDContainer" type="MarginContainer" parent="." unique_id=907820483]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="HUDContainer" unique_id=2071461774]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="TopRow" type="HBoxContainer" parent="HUDContainer/VBox" unique_id=1506646262]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ScoreLabel" type="Label" parent="HUDContainer/VBox/TopRow" unique_id=1714241378]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.92, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+text = "SCORE  000000"
+
+[node name="WaveLabel" type="Label" parent="HUDContainer/VBox/TopRow" unique_id=1667537102]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 14
+text = "WAVE  1"
+
+[node name="EnemiesLabel" type="Label" parent="HUDContainer/VBox/TopRow" unique_id=146643779]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_colors/font_color = Color(1, 0.5, 0.5, 1)
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 2
+
+[node name="HealthRow" type="HBoxContainer" parent="HUDContainer/VBox" unique_id=238002486]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HeartLabel" type="Label" parent="HUDContainer/VBox/HealthRow" unique_id=2123580558]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.9, 0.3, 1)
+theme_override_font_sizes/font_size = 12
+text = "HP"
+
+[node name="HealthBar" type="ProgressBar" parent="HUDContainer/VBox/HealthRow" unique_id=1816726296]
+custom_minimum_size = Vector2(120, 10)
+layout_mode = 2
+size_flags_vertical = 4
+value = 100.0
+show_percentage = false
+
+[node name="HealthLabel" type="Label" parent="HUDContainer/VBox/HealthRow" unique_id=1546243548]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 12
+text = "100 / 100"
+
+[node name="Spacer" type="Control" parent="HUDContainer/VBox" unique_id=1475130933]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BottomRow" type="HBoxContainer" parent="HUDContainer/VBox" unique_id=1103956518]
+layout_mode = 2
+mouse_filter = 2
+alignment = 2
+
+[node name="WeaponLabel" type="Label" parent="HUDContainer/VBox/BottomRow" unique_id=688030813]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "PISTOL"
+
+[node name="Separator" type="Label" parent="HUDContainer/VBox/BottomRow" unique_id=1640527885]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
+theme_override_font_sizes/font_size = 14
+text = "  |  "
+
+[node name="AmmoLabel" type="Label" parent="HUDContainer/VBox/BottomRow" unique_id=1392337697]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "∞"
+
+[node name="PauseMenu" parent="." unique_id=2006069841 instance=ExtResource("2_pm")]

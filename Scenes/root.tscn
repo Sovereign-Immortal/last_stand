@@ -2,9 +2,8 @@
 
 [ext_resource type="PackedScene" uid="uid://bs8n16ux10fuw" path="res://Scenes/Locations/map_1.tscn" id="2_8pvmw"]
 [ext_resource type="PackedScene" uid="uid://cmrkcwcuxr3ux" path="res://Scenes/Humans/player.tscn" id="2_vnucn"]
-[ext_resource type="PackedScene" uid="uid://bc5yst7heysf2" path="res://Scenes/Zombies/zombie_base.tscn" id="3_vnucn"]
-[ext_resource type="PackedScene" uid="uid://celccrggpqgmg" path="res://Scenes/Zombies/zombie_slow.tscn" id="4_c3mwy"]
-[ext_resource type="PackedScene" uid="uid://d2kh60kqx1vva" path="res://Scenes/Zombies/Cyborg_zombie.tscn" id="5_4g5cr"]
+[ext_resource type="PackedScene" path="res://Scenes/UI/hud.tscn" id="6_hud"]
+[ext_resource type="Script" path="res://Scenes/WaveManager/wave_manager.gd" id="7_wm"]
 
 [node name="Root" type="Node2D" unique_id=1705530067]
 
@@ -24,42 +23,43 @@ drag_vertical_enabled = true
 
 [node name="Enemies" type="Node2D" parent="." unique_id=1097347597]
 
-[node name="ZombieBase" parent="Enemies" unique_id=1963313864 instance=ExtResource("3_vnucn")]
-position = Vector2(1034, 374)
+; ── Wave Manager ─────────────────────────────────────────────────────────────
+[node name="WaveManager" type="Node" parent="." unique_id=2001000001]
+script = ExtResource("7_wm")
 
-[node name="ZombieBase3" parent="Enemies" unique_id=64030556 instance=ExtResource("3_vnucn")]
-position = Vector2(-395, 795)
+; ── Spawn Points (perimeter of map_1) ────────────────────────────────────────
+; Top edge
+[node name="SP_TopRight" type="Marker2D" parent="WaveManager" unique_id=2001000010]
+position = Vector2(600, -350)
 
-[node name="ZombieBase2" parent="Enemies" unique_id=1036770022 instance=ExtResource("3_vnucn")]
-position = Vector2(551, -228)
+[node name="SP_TopCenter" type="Marker2D" parent="WaveManager" unique_id=2001000011]
+position = Vector2(0, -400)
 
-[node name="ZombieSlow" parent="Enemies" unique_id=551839156 instance=ExtResource("4_c3mwy")]
-position = Vector2(862, -57)
-strength = 1.0
+[node name="SP_TopLeft" type="Marker2D" parent="WaveManager" unique_id=2001000012]
+position = Vector2(-600, -320)
 
-[node name="ZombieSlow5" parent="Enemies" unique_id=1710649466 instance=ExtResource("4_c3mwy")]
-position = Vector2(-626, -192)
-strength = 1.0
+; Right edge
+[node name="SP_Right" type="Marker2D" parent="WaveManager" unique_id=2001000020]
+position = Vector2(1150, 150)
 
-[node name="ZombieSlow6" parent="Enemies" unique_id=750819436 instance=ExtResource("4_c3mwy")]
-position = Vector2(828, 633)
-strength = 1.0
+[node name="SP_RightBottom" type="Marker2D" parent="WaveManager" unique_id=2001000021]
+position = Vector2(1100, 650)
 
-[node name="ZombieSlow7" parent="Enemies" unique_id=1456078394 instance=ExtResource("4_c3mwy")]
-position = Vector2(-606, 614)
-strength = 1.0
+; Bottom edge
+[node name="SP_BottomRight" type="Marker2D" parent="WaveManager" unique_id=2001000030]
+position = Vector2(600, 870)
 
-[node name="ZombieSlow4" parent="Enemies" unique_id=1149575844 instance=ExtResource("4_c3mwy")]
-position = Vector2(-109, 687)
-strength = 1.0
+[node name="SP_BottomCenter" type="Marker2D" parent="WaveManager" unique_id=2001000031]
+position = Vector2(-50, 900)
 
-[node name="ZombieSlow2" parent="Enemies" unique_id=1421458414 instance=ExtResource("4_c3mwy")]
-position = Vector2(1096, 702)
-strength = 1.0
+[node name="SP_BottomLeft" type="Marker2D" parent="WaveManager" unique_id=2001000032]
+position = Vector2(-700, 820)
 
-[node name="ZombieSlow3" parent="Enemies" unique_id=1260899572 instance=ExtResource("4_c3mwy")]
-position = Vector2(-862, -153)
-strength = 1.0
+; Left edge
+[node name="SP_Left" type="Marker2D" parent="WaveManager" unique_id=2001000040]
+position = Vector2(-950, 200)
 
-[node name="Cybord_Zombie" parent="Enemies" unique_id=1318974718 instance=ExtResource("5_4g5cr")]
-position = Vector2(-224, 158)
+[node name="SP_LeftTop" type="Marker2D" parent="WaveManager" unique_id=2001000041]
+position = Vector2(-870, -180)
+
+[node name="HUD" parent="." instance=ExtResource("6_hud")]

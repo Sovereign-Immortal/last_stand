@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://zombie_gunner_01"]
+
+[ext_resource type="PackedScene" uid="uid://bc5yst7heysf2" path="res://Scenes/Zombies/zombie_base.tscn" id="1_gz"]
+[ext_resource type="Texture2D" uid="uid://cocv7t246pyvx" path="res://Last Stand Assets/Characters/PNG/Zombie 1/zoimbie1_gun.png" id="2_gz"]
+[ext_resource type="Texture2D" path="res://Last Stand Assets/Characters/PNG/weapon_gun.png" id="3_gz"]
+
+[node name="ZombieGunner" unique_id=1963313864 instance=ExtResource("1_gz")]
+strength = 2.0
+zombie_type = "gunner"
+move_speed = 80.0
+sight_range = 600.0
+max_health = 80.0
+damage = 10
+score_value = 30
+
+[node name="image" parent="." index="0" unique_id=957536577]
+self_modulate = Color(0.65, 1.0, 0.65, 1.0)
+scale = Vector2(1.15, 1.15)
+texture = ExtResource("2_gz")
+
+[node name="WeaponSprite" type="Sprite2D" parent="." index="4"]
+position = Vector2(6, 12)
+rotation = 1.5708
+scale = Vector2(1.0, 1.0)
+texture = ExtResource("3_gz")

@@ -5,10 +5,12 @@
 
 [node name="ZombieSlow" unique_id=1963313864 instance=ExtResource("1_rucqp")]
 strength = 1.0
-zombie_type = "slow"
-move_speed = 100.0
-sight_range = 600.0
-formation_radius = 100.0
+move_speed = 110.0
+sight_range = 300.0
+max_health = 35.0
+damage = 8
+attack_cooldown = 1.2
+score_value = 5
 
 [node name="image" parent="." index="0" unique_id=957536577]
 texture = ExtResource("2_s3vhf")

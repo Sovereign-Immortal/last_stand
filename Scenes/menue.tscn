@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://crahr2lbmpbyb"]
 
 [ext_resource type="StyleBox" uid="uid://dgyrm4qtxfd75" path="res://btn styles/menue buttons.tres" id="1_wkpcg"]
+[ext_resource type="Script" uid="uid://cj75oqflk184m" path="res://Scenes/menue.gd" id="2_menu"]
 
 [node name="Menue" type="Control" unique_id=1013826101]
 layout_mode = 3
@@ -9,21 +10,76 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("2_menu")
+
+[node name="FogParticles" type="CPUParticles2D" parent="." unique_id=1266107308]
+position = Vector2(320, 180)
+amount = 40
+lifetime = 6.0
+randomness = 1.0
+emission_shape = 3
+emission_rect_extents = Vector2(320, 180)
+direction = Vector2(1, -0.2)
+spread = 20.0
+initial_velocity_min = 8.0
+initial_velocity_max = 20.0
+scale_amount_min = 4.0
+scale_amount_max = 10.0
+color = Color(0.12, 0.12, 0.12, 0.25)
+
+[node name="TitleLabel" type="Label" parent="." unique_id=1852252378]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.28
+anchor_right = 0.5
+anchor_bottom = 0.28
+offset_left = -150.0
+offset_top = -24.0
+offset_right = 150.0
+offset_bottom = 24.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.85, 0.05, 0.05, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 36
+text = "LAST STAND"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="." unique_id=52644215]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.38
+anchor_right = 0.5
+anchor_bottom = 0.38
+offset_left = -120.0
+offset_top = -10.0
+offset_right = 120.0
+offset_bottom = 10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
+theme_override_font_sizes/font_size = 11
+text = "survive the horde"
+horizontal_alignment = 1
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=596054406]
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = 7
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -51.0
-offset_top = -73.0
-offset_right = 51.0
-offset_bottom = 73.0
+anchor_bottom = 1.0
+offset_left = -75.0
+offset_top = -177.0
+offset_right = 75.0
+offset_bottom = -27.0
 grow_horizontal = 2
-grow_vertical = 2
+grow_vertical = 0
 theme_override_constants/separation = 6
 alignment = 1
 
@@ -90,3 +146,7 @@ theme_override_font_sizes/font_size = 30
 theme_override_styles/normal = ExtResource("1_wkpcg")
 action_mode = 0
 text = "QUIT!?"
+
+[connection signal="pressed" from="VBoxContainer/Button" to="." method="_on_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Button2" to="." method="_on_button_2_pressed"]
+[connection signal="pressed" from="VBoxContainer/Button3" to="." method="_on_button_3_pressed"]
