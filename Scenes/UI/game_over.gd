@@ -5,9 +5,9 @@ extends Control
 @onready var hi_label: Label     = $VBox/HiScoreLabel
 
 func _ready() -> void:
-	score_label.text = "SCORE  %06d" % Globals.score
+	score_label.text = "LEVEL %d  [EXP: %d]" % [Globals.player_level, Globals.score]
 	wave_label.text  = "WAVE REACHED  %d" % Globals.current_wave
-	hi_label.text    = "BEST  %06d" % Globals.high_score
+	hi_label.text    = "BEST EXP  %d" % Globals.high_score
 	UIStyler.style_scene(self)
 
 func _on_retry_pressed() -> void:

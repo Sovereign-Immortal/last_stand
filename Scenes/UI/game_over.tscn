@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://Scenes/UI/game_over.gd" id="1_go"]
 [ext_resource type="StyleBox" uid="uid://dgyrm4qtxfd75" path="res://btn styles/menue buttons.tres" id="2_go"]
+[ext_resource type="Texture2D" path="res://Last Stand Assets/UI/game_over_bg.jpg" id="3_bg"]
 
 [node name="GameOver" type="Control"]
 layout_mode = 3
@@ -12,15 +13,16 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_go")
 
-; Dark semi-transparent background
-[node name="BG" type="ColorRect" parent="."]
+; Game over background image
+[node name="BG" type="TextureRect" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.03, 0.03, 0.05, 0.95)
-mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
 
 [node name="VBox" type="VBoxContainer" parent="."]
 custom_minimum_size = Vector2(220, 0)

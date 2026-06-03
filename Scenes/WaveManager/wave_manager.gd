@@ -39,6 +39,13 @@ func _ready() -> void:
 	# Wait one frame for node tree structure initialization to complete safely
 	await get_tree().process_frame
 
+	if Globals.selected_map == "res://Scenes/Locations/heart_cavern.tscn":
+		_running = false
+		var hud = get_tree().get_first_node_in_group("hud")
+		if hud:
+			hud.visible = false
+		return
+
 	# Spawn points = all Marker2D direct children of this node
 	for child in get_children():
 		if child is Marker2D:
@@ -85,6 +92,12 @@ func _ready() -> void:
 		# Bake the navigation mesh synchronously (false = on main thread) so it's ready immediately
 		nav_region.bake_navigation_polygon(false)
 
+	if Globals.is_continuing_game:
+		_current_wave = Globals.current_wave - 1
+		Globals.is_continuing_game = false
+	else:
+		_current_wave = 0
+
 	_running = true
 	await get_tree().create_timer(2.0).timeout
 	_run_loop()
@@ -95,6 +108,14 @@ func _ready() -> void:
 func _run_loop() -> void:
 	while _running:
 		_current_wave += 1
+		
+		if _current_wave == 8:
+			_running = false
+			Globals.selected_map = "res://Scenes/Locations/heart_cavern.tscn"
+			Globals.save()
+			SceneTransition.fade_to("res://Scenes/root.tscn")
+			return
+			
 		await _execute_wave(_current_wave)
 
 		emit_signal("wave_completed", _current_wave)
@@ -109,6 +130,27 @@ func _run_loop() -> void:
 		emit_signal("wave_countdown", 0)
 
 func _execute_wave(wave_num: int) -> void:
+	if wave_num == 6:
+		DialogManager.show_dialog([
+			{
+				"speaker": "System",
+				"text": "The ground trembles. The air grows cold. A memory from five hundred years ago drags you under...",
+				"color": Color(0.8, 0.2, 0.2)
+			},
+			{
+				"speaker": "Kaelan",
+				"text": "Where... where am I? Why are they so small?",
+				"color": Color(0.9, 0.4, 0.9)
+			}
+		])
+		while DialogManager.is_active():
+			await get_tree().create_timer(0.1).timeout
+		
+		AudioManager.trigger_tinnitus(2.5)
+		var player = get_tree().get_first_node_in_group("player")
+		if player and player.has_method("enter_giant_flashback"):
+			player.enter_giant_flashback(true)
+
 	var list := _build_spawn_list(wave_num)
 	emit_signal("wave_started", wave_num, list.size())
 
@@ -124,6 +166,31 @@ func _execute_wave(wave_num: int) -> void:
 		if not _running:
 			return
 
+	if wave_num == 6:
+		var player = get_tree().get_first_node_in_group("player")
+		if player and player.has_method("enter_giant_flashback"):
+			player.enter_giant_flashback(false)
+		
+		DialogManager.show_dialog([
+			{
+				"speaker": "Kaelan",
+				"text": "*gasp*... *gasp*... What was that?",
+				"color": Color(0.2, 0.9, 1.0)
+			},
+			{
+				"speaker": "Kaelan",
+				"text": "I was huge. I was tearing them apart with my bare hands.",
+				"color": Color(0.2, 0.9, 1.0)
+			},
+			{
+				"speaker": "Kaelan",
+				"text": "Was that... me? Five hundred years ago?",
+				"color": Color(0.2, 0.9, 1.0)
+			}
+		])
+		while DialogManager.is_active():
+			await get_tree().create_timer(0.1).timeout
+
 # ---------------------------------------------------------------------------
 # Wave definitions
 # ---------------------------------------------------------------------------
@@ -135,6 +202,8 @@ func _build_spawn_list(wave_num: int) -> Array:
 		3: list = _batch("slow", 3, 1.1) + _batch("base", 2, 1.0) + _batch("bomber", 2, 1.0) + _batch("gunner", 1, 1.0)
 		4: list = _batch("slow", 3, 1.1) + _batch("base", 3, 1.0) + _batch("heart", 1, 1.0) + _batch("gunner", 1, 1.0) + _batch("bomber", 2, 1.0)
 		5: list = _batch("base", 4, 1.1) + _batch("cyborg", 1, 1.0) + _batch("heart", 1, 1.0) + _batch("gunner", 2, 1.0) + _batch("bomber", 2, 1.0)
+		6: list = _batch("slow", 18, 1.0) + _batch("base", 12, 1.0)
+		7: list = _batch("slow", 5, 1.2) + _batch("base", 6, 1.2) + _batch("cyborg", 3, 1.2) + _batch("bomber", 4, 1.2) + _batch("gunner", 3, 1.2)
 		_:
 			var n := wave_num - 5
 			var mult := 1.0 + n * 0.07

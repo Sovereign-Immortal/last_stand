@@ -92,6 +92,9 @@ const BULLET_TYPES: Array[Dictionary] = [
 # ---------------------------------------------------------------------------
 var health: int
 var is_dead: bool = false
+var is_giant: bool = false
+var _first_hit_taken: bool = false
+var _explosion_dialog_played: bool = false
 
 var current_weapon_index: int = 0
 var carried_weapons: Array[int] = [0]
@@ -133,6 +136,7 @@ signal weapon_fired
 # Lifecycle
 # ---------------------------------------------------------------------------
 func _ready() -> void:
+	add_to_group("player")
 	health = max_health
 	# Bullet container at root level (keeps bullets from moving with camera)
 	var root := get_tree().root.get_child(0)
@@ -150,6 +154,30 @@ func _ready() -> void:
 	_setup_shell_casings()
 	_notify_bullet_changed()
 	_apply_weapon_sprite()
+
+	Globals.player_leveled_up.connect(_on_player_leveled_up)
+	_on_player_leveled_up()
+
+	# Start of level introductory monologue reflecting the wake-up nightmare
+	get_tree().create_timer(0.3).timeout.connect(func():
+		DialogManager.show_dialog([
+			{
+				"speaker": "Kaelan",
+				"text": "I am sorry mom I wont be able to go to school tomorrow",
+				"color": Color(0.2, 0.9, 1.0)
+			},
+			{
+				"speaker": "Kaelan",
+				"text": "mom (?)",
+				"color": Color(0.2, 0.9, 1.0)
+			},
+			{
+				"speaker": "Kaelan",
+				"text": "I cant recall her.. what was I even doing before?",
+				"color": Color(0.2, 0.9, 1.0)
+			}
+		])
+	)
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -177,10 +205,17 @@ func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_up", "move_down").normalized()
 	if input_vector != Vector2.ZERO:
 		var speed_mult: float = WEAPONS[current_weapon_index].get("weight", 1.0)
+		if is_giant:
+			speed_mult = 1.3
 		if stun_timer > 0.0:
 			speed_mult = 0.0
 		elif slow_timer > 0.0:
 			speed_mult *= 0.5 # 50% slow down effect
+		
+		# Sensory overload headache speed penalty
+		if AudioManager.headache_active:
+			speed_mult *= 0.6
+			
 		velocity = velocity.move_toward(input_vector * MAX_SPEED * speed_mult, ACCELERATION * delta)
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
@@ -200,13 +235,26 @@ func _physics_process(delta: float) -> void:
 	var should_fire: bool
 	if stun_timer > 0.0:
 		should_fire = false
+	elif is_giant:
+		should_fire = (press or hold) and fire_cooldown <= 0.0
 	elif current_weapon_index == 1:  # Machine Gun
 		should_fire = hold and fire_cooldown <= 0.0
 	else:
 		should_fire = press and fire_cooldown <= 0.0
 
 	if should_fire:
-		_fire(weapon)
+		if is_giant:
+			_fire_giant_shockwave()
+		else:
+			_fire(weapon)
+
+	# --- Interaction ---
+	if Input.is_action_just_pressed("interact"):
+		if has_meta("active_crypt"):
+			var crypt = get_meta("active_crypt")
+			if crypt and crypt.has_meta("interact_method"):
+				var method = crypt.get_meta("interact_method")
+				method.call()
 
 	# --- Weapon switching ---
 	if Input.is_action_just_pressed("weapon_1"):
@@ -252,7 +300,7 @@ func _fire(weapon: Dictionary) -> void:
 	var b: Area2D = bullet_scene.instantiate()
 	b.initialize(
 		dir, 
-		weapon["damage"] * b_type["damage_mult"], 
+		weapon["damage"] * b_type["damage_mult"] * (1.0 + Globals.damage_stat_level * 0.1), 
 		weapon["bullet_spd"] * b_type["speed_mult"],
 		current_bullet_type
 	)
@@ -274,6 +322,50 @@ func _fire(weapon: Dictionary) -> void:
 	if _shell_casings and current_weapon_index != 2:  # silencer has no shell VFX
 		_shell_casings.global_position = global_position + dir.rotated(PI * 0.5) * 8.0
 		_shell_casings.restart()
+
+func _fire_giant_shockwave() -> void:
+	fire_cooldown = 0.22
+	AudioManager.play_shoot(1)
+	emit_signal("weapon_fired")
+	
+	var dir := global_position.direction_to(get_global_mouse_position()).normalized()
+	
+	var b: Area2D = bullet_scene.instantiate()
+	b.initialize(
+		dir,
+		320.0,
+		1100.0,
+		0
+	)
+	b.pierces = true
+	b.scale = Vector2(5.0, 5.0)
+	bullet_container.add_child(b)
+	
+	var muzzle_pos := global_position + dir * 55.0
+	b.global_position = muzzle_pos
+	
+	if b.has_node("Sprite2D"):
+		b.get_node("Sprite2D").modulate = Color(2.0, 1.5, 0.3)
+
+	if _muzzle_flash:
+		_muzzle_flash.global_position = muzzle_pos
+		_muzzle_flash.color = Color(2.0, 1.5, 0.3)
+		_muzzle_flash.restart()
+
+func enter_giant_flashback(active: bool) -> void:
+	is_giant = active
+	if active:
+		scale = Vector2(2.5, 2.5)
+		if sprite:
+			sprite.modulate = Color(1.3, 1.1, 0.7)
+		health = max_health * 5
+		emit_signal("health_changed", health, max_health * 5)
+	else:
+		scale = Vector2(1.0, 1.0)
+		if sprite:
+			sprite.modulate = Color.WHITE
+		health = max_health
+		emit_signal("health_changed", health, max_health)
 
 # ---------------------------------------------------------------------------
 # Weapon management
@@ -367,6 +459,17 @@ func take_damage(amount: int) -> void:
 	emit_signal("health_changed", health, max_health)
 	AudioManager.play_player_hurt()
 	_shake_screen(6.0, 0.25)
+	
+	if not _first_hit_taken:
+		_first_hit_taken = true
+		DialogManager.show_dialog([
+			{
+				"speaker": "Kaelan",
+				"text": "Ouch! that hurts!!",
+				"color": Color(0.2, 0.9, 1.0)
+			}
+		])
+		
 	if health == 0:
 		_die()
 
@@ -374,6 +477,47 @@ func heal(amount: int) -> void:
 	if is_dead:
 		return
 	health = min(max_health, health + amount)
+	emit_signal("health_changed", health, max_health)
+
+func trigger_explosion_dialog() -> void:
+	if not _explosion_dialog_played:
+		_explosion_dialog_played = true
+		DialogManager.show_dialog([
+			{
+				"speaker": "Kaelan",
+				"text": "WHAT IS THIS SOUND MY EARSS",
+				"color": Color(0.2, 0.9, 1.0)
+			}
+		])
+
+func apply_bullet_effect(bullet_type: int, dir: Vector2) -> void:
+	if is_dead:
+		return
+	match bullet_type:
+		0, 1: # Standard, Quick
+			pass
+		2: # Paralysis: stun for 1.5 seconds
+			stun_timer = 1.5
+			var tw := create_tween()
+			tw.tween_property(self, "modulate", Color(0.7, 0.1, 1.0), 0.1)
+			tw.tween_property(self, "modulate", Color.WHITE, 0.2)
+		3: # Knockback: push player by large force
+			velocity += dir * 550.0
+			var tw := create_tween()
+			tw.tween_property(self, "modulate", Color(0.1, 0.9, 0.1), 0.1)
+			tw.tween_property(self, "modulate", Color.WHITE, 0.2)
+		4: # Slow down: slow player by 50% for 3.0 seconds
+			slow_timer = 3.0
+			var tw := create_tween()
+			tw.tween_property(self, "modulate", Color(0.3, 0.9, 1.0), 0.1)
+			tw.tween_property(self, "modulate", Color.WHITE, 0.2)
+
+func _on_player_leveled_up() -> void:
+	var old_max_health := max_health
+	max_health = 100 + Globals.hp_stat_level * 10
+	if max_health > old_max_health:
+		health += (max_health - old_max_health)
+	MAX_SPEED = 300.0 + Globals.speed_stat_level * 24.0
 	emit_signal("health_changed", health, max_health)
 
 func _die() -> void:

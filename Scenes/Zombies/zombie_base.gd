@@ -21,6 +21,8 @@ var _health_pickup_scene := preload("res://Scenes/Pickups/health_pickup.tscn")
 
 var _gunner_shoot_timer: float = 4.0
 var _exploded: bool = false
+var _is_primed: bool = false
+var _prime_timer: float = 0.0
 
 # ------------------------------------------------------------------
 # 2. Horde / leader data
@@ -92,6 +94,12 @@ func _process(delta):
 	elif slow_timer > 0.0:
 		current_speed = move_speed * 0.4 # 60% slow
 
+	# Cyborg persistent tracking: always target the player node
+	if zombie_type == "cyborg zombie":
+		var p = get_tree().get_first_node_in_group("player")
+		if p and not p.get("is_dead"):
+			player_target = p
+
 	# Dynamically target/verify player target to avoid getting stuck or losing target
 	if player_target == null or not is_instance_valid(player_target) or player_target.get("is_dead") == true:
 		var p = get_tree().get_first_node_in_group("player")
@@ -99,6 +107,28 @@ func _process(delta):
 			player_target = p
 		else:
 			player_target = null
+
+	# Bomber priming logic
+	if zombie_type == "bomber" and player_target:
+		var dist = global_position.distance_to(player_target.global_position)
+		if dist < 180.0 and not _is_primed:
+			_is_primed = true
+			_prime_timer = 1.2
+			# Trigger warning groan
+			AudioManager.play_zombie_groan()
+			
+		if _is_primed:
+			_prime_timer -= delta
+			current_speed = move_speed * 1.75 # speed rush
+			
+			# Flashing warning effect
+			var flash_freq := 18.0
+			var flash := sin(Time.get_ticks_msec() * 0.001 * flash_freq) * 0.5 + 0.5
+			modulate = Color(2.0, 0.3, 0.3).lerp(Color.WHITE, flash)
+			
+			if _prime_timer <= 0.0:
+				_explode()
+				return
 
 	if player_target:
 		look_at(player_target.global_position)  # visual only
@@ -264,7 +294,8 @@ func _chase(_delta):
 		if next_pos.distance_to(global_position) < 2.0:
 			next_pos = player_target.global_position
 		var desired_vel = global_position.direction_to(next_pos) * current_speed
-		velocity = _steer_toward(velocity, desired_vel, 10.0)  # smooth steering
+		var steer_weight = 18.0 if zombie_type == "cyborg zombie" else 10.0
+		velocity = _steer_toward(velocity, desired_vel, steer_weight)  # smooth steering
 	else:
 		velocity = Vector2.ZERO
 
@@ -551,6 +582,10 @@ func _explode() -> void:
 	var player = get_tree().get_first_node_in_group("player")
 	if player and not player.is_dead:
 		var dist = global_position.distance_to(player.global_position)
+		if dist < 350.0:
+			AudioManager.trigger_tinnitus(2.5)
+			if player.has_method("trigger_explosion_dialog"):
+				player.trigger_explosion_dialog()
 		if dist < 220.0:
 			if player.has_method("_shake_screen"):
 				player._shake_screen(9.0, 0.35)

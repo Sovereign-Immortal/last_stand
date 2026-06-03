@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b0subway15m2u"]
+
+[ext_resource type="Script" path="res://Scenes/Locations/subway_tunnels.gd" id="1_st"]
+
+[node name="Map1" type="Node2D" unique_id=1859994748]
+script = ExtResource("1_st")

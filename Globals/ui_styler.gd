@@ -173,6 +173,8 @@ static func _apply_styles_recursive(node: Node) -> void:
 			btn.mouse_entered.connect(_on_btn_hover.bind(btn))
 		if not btn.mouse_exited.is_connected(_on_btn_unhover.bind(btn)):
 			btn.mouse_exited.connect(_on_btn_unhover.bind(btn))
+		if not btn.pressed.is_connected(_on_btn_pressed):
+			btn.pressed.connect(_on_btn_pressed)
 
 	elif node is Label:
 		var lbl := node as Label
@@ -190,8 +192,11 @@ static func _update_pivot(btn: Button) -> void:
 static func _on_btn_hover(btn: Button) -> void:
 	var tw := btn.create_tween()
 	tw.tween_property(btn, "scale", Vector2(1.05, 1.05), 0.1).set_ease(Tween.EASE_OUT)
-	AudioManager.play_empty()
+	AudioManager.play_hover()
 
 static func _on_btn_unhover(btn: Button) -> void:
 	var tw := btn.create_tween()
 	tw.tween_property(btn, "scale", Vector2(1.0, 1.0), 0.15).set_ease(Tween.EASE_OUT)
+
+static func _on_btn_pressed() -> void:
+	AudioManager.play_click()

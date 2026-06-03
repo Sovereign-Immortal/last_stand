@@ -39,6 +39,23 @@ var _pickup_node: Node2D = null
 var _weapon_menu_open: bool = false
 var _legend_labels: Array[Label] = []
 
+# Character/Merchant menu variables
+var _char_menu: PanelContainer = null
+var _char_menu_open: bool = false
+var _cm_title: Label
+var _cm_info: Label
+var _cm_level_btn: Button
+var _cm_vigor_lbl: Label
+var _cm_haste_lbl: Label
+var _cm_strength_lbl: Label
+var _cm_vigor_btn: Button
+var _cm_haste_btn: Button
+var _cm_strength_btn: Button
+var _cm_ammo_std_btn: Button
+var _cm_ammo_sp_btn: Button
+var _cm_heal_btn: Button
+var _cm_close_btn: Button
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -83,12 +100,20 @@ func _ready() -> void:
 	Globals.score_changed.connect(_on_score_changed)
 	Globals.wave_changed.connect(_on_wave_changed)
 	Globals.combo_changed.connect(_on_combo_changed)
+	Globals.level_up_available.connect(func():
+		_show_announcement("YOU CAN LEVEL UP!\n[Press C]", Color(0.1, 0.8, 1.0))
+	)
+	Globals.player_leveled_up.connect(func():
+		_on_score_changed(Globals.score)
+		_update_char_menu()
+	)
 
 	# Instantiate and add crosshair
 	_crosshair = _crosshair_scene.instantiate()
 	add_child(_crosshair)
 
 	_create_weapon_menu()
+	_create_char_menu()
 
 	await get_tree().process_frame
 
@@ -125,6 +150,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _weapon_menu_open:
 			close_weapon_menu()
 			return
+		if _char_menu_open:
+			close_char_menu()
+			return
 		_is_paused = !_is_paused
 		get_tree().paused = _is_paused
 		pause_menu.visible = _is_paused
@@ -134,7 +162,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _weapon_menu_open:
 				close_weapon_menu()
 			else:
+				if _char_menu_open:
+					close_char_menu()
 				open_weapon_switch_menu()
+	
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
+		if _player and not _player.is_dead and not _is_paused:
+			if _char_menu_open:
+				close_char_menu()
+			else:
+				if _weapon_menu_open:
+					close_weapon_menu()
+				open_char_menu()
 
 
 func _process(delta: float) -> void:
@@ -144,16 +183,21 @@ func _process(delta: float) -> void:
 		damage_flash.modulate.a = _flash_timer / 0.3
 	else:
 		damage_flash.modulate.a = 0.0
-	# Vignette: pulse red at low health
+	# Vignette: pulse red at low health or purple/red at headache overload
 	if _vignette_mat and _player and not _player.is_dead:
-		var hp_pct := float(_player.health) / float(_player.max_health)
-		if hp_pct < 0.3:
-			var pulse := sin(Time.get_ticks_msec() * 0.004) * 0.5 + 0.5
-			_vignette_mat.set_shader_parameter("strength", lerp(0.7, 1.8, pulse))
-			_vignette_mat.set_shader_parameter("vig_color", Vector3(0.5, 0.0, 0.0))
+		if AudioManager.headache_active:
+			var pulse := sin(Time.get_ticks_msec() * 0.008) * 0.5 + 0.5
+			_vignette_mat.set_shader_parameter("strength", lerp(1.0, 2.2, pulse))
+			_vignette_mat.set_shader_parameter("vig_color", Vector3(0.6, 0.0, 0.45)) # Deep purple/red
 		else:
-			_vignette_mat.set_shader_parameter("strength", 0.55)
-			_vignette_mat.set_shader_parameter("vig_color", Vector3(0.0, 0.0, 0.0))
+			var hp_pct := float(_player.health) / float(_player.max_health)
+			if hp_pct < 0.3:
+				var pulse := sin(Time.get_ticks_msec() * 0.004) * 0.5 + 0.5
+				_vignette_mat.set_shader_parameter("strength", lerp(0.7, 1.8, pulse))
+				_vignette_mat.set_shader_parameter("vig_color", Vector3(0.5, 0.0, 0.0))
+			else:
+				_vignette_mat.set_shader_parameter("strength", 0.55)
+				_vignette_mat.set_shader_parameter("vig_color", Vector3(0.0, 0.0, 0.0))
 	# Poll zombie count
 	_enemies_poll_timer -= delta
 	if _enemies_poll_timer <= 0.0:
@@ -178,7 +222,7 @@ func _on_health_changed(new_hp: int, max_hp: int) -> void:
 	_flash_timer = 0.3
 
 func _on_score_changed(new_score: int) -> void:
-	score_label.text = "SCORE  %06d" % new_score
+	score_label.text = "LVL %d  [EXP: %d/%d]" % [Globals.player_level, new_score, Globals.get_next_level_cost()]
 
 func _on_wave_changed(new_wave: int) -> void:
 	wave_label.text = "WAVE  %d" % new_wave
@@ -334,37 +378,37 @@ func _create_weapon_menu() -> void:
 	style.shadow_size = 10
 	_weapon_menu.add_theme_stylebox_override("panel", style)
 	
-	# Compact dimensions side-by-side
-	_weapon_menu.custom_minimum_size = Vector2(650, 310)
+	# Compact dimensions side-by-side (fits inside 640x360)
+	_weapon_menu.custom_minimum_size = Vector2(520, 240)
 	_weapon_menu.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_weapon_menu.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_weapon_menu.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_weapon_menu.visible = false
 	
 	var margin_container := MarginContainer.new()
-	margin_container.add_theme_constant_override("margin_left", 14)
-	margin_container.add_theme_constant_override("margin_right", 14)
-	margin_container.add_theme_constant_override("margin_top", 14)
-	margin_container.add_theme_constant_override("margin_bottom", 14)
+	margin_container.add_theme_constant_override("margin_left", 8)
+	margin_container.add_theme_constant_override("margin_right", 8)
+	margin_container.add_theme_constant_override("margin_top", 8)
+	margin_container.add_theme_constant_override("margin_bottom", 8)
 	_weapon_menu.add_child(margin_container)
 	
 	# Side-by-side HBox layout
 	var hbox := HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", 18)
+	hbox.add_theme_constant_override("separation", 12)
 	margin_container.add_child(hbox)
 	
 	# Left Side: Weapon Selection
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 8)
-	vbox.custom_minimum_size = Vector2(280, 0)
+	vbox.add_theme_constant_override("separation", 4)
+	vbox.custom_minimum_size = Vector2(235, 0)
 	hbox.add_child(vbox)
 	
 	# Title
 	_wm_title = Label.new()
 	_wm_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_wm_title.add_theme_font_size_override("font_size", 16)
+	_wm_title.add_theme_font_size_override("font_size", 11)
 	_wm_title.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
 	vbox.add_child(_wm_title)
 	
@@ -372,82 +416,85 @@ func _create_weapon_menu() -> void:
 	_wm_desc = Label.new()
 	_wm_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_wm_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_wm_desc.add_theme_font_size_override("font_size", 12)
+	_wm_desc.add_theme_font_size_override("font_size", 9)
 	_wm_desc.add_theme_color_override("font_color", Color(0.8, 0.8, 0.82))
 	vbox.add_child(_wm_desc)
-
+	
 	# Stats / Weapon Description Label
 	_wm_stats = Label.new()
 	_wm_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_wm_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_wm_stats.add_theme_font_size_override("font_size", 10)
+	_wm_stats.add_theme_font_size_override("font_size", 8)
 	_wm_stats.add_theme_color_override("font_color", Color(0.9, 0.9, 0.2)) # Sleek yellow
 	vbox.add_child(_wm_stats)
 	
 	# Spacer
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 2)
+	spacer.custom_minimum_size = Vector2(0, 1)
 	vbox.add_child(spacer)
 	
 	# Button VBox for slots
 	var btn_vbox := VBoxContainer.new()
 	btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_vbox.add_theme_constant_override("separation", 6)
+	btn_vbox.add_theme_constant_override("separation", 4)
 	vbox.add_child(btn_vbox)
 	
 	# Slot 1 button
 	_wm_slot1_btn = Button.new()
-	_wm_slot1_btn.custom_minimum_size = Vector2(260, 36)
+	_wm_slot1_btn.custom_minimum_size = Vector2(220, 24)
+	_wm_slot1_btn.add_theme_font_size_override("font_size", 9)
 	_wm_slot1_btn.pressed.connect(_on_wm_slot1_pressed)
 	btn_vbox.add_child(_wm_slot1_btn)
 	
 	# Slot 2 button
 	_wm_slot2_btn = Button.new()
-	_wm_slot2_btn.custom_minimum_size = Vector2(260, 36)
+	_wm_slot2_btn.custom_minimum_size = Vector2(220, 24)
+	_wm_slot2_btn.add_theme_font_size_override("font_size", 9)
 	_wm_slot2_btn.pressed.connect(_on_wm_slot2_pressed)
 	btn_vbox.add_child(_wm_slot2_btn)
 	
 	# Spacer
 	var spacer2 := Control.new()
-	spacer2.custom_minimum_size = Vector2(0, 2)
+	spacer2.custom_minimum_size = Vector2(0, 1)
 	vbox.add_child(spacer2)
 	
 	# Close/Cancel button
 	_wm_close_btn = Button.new()
-	_wm_close_btn.custom_minimum_size = Vector2(140, 28)
+	_wm_close_btn.custom_minimum_size = Vector2(110, 20)
+	_wm_close_btn.add_theme_font_size_override("font_size", 8)
 	_wm_close_btn.pressed.connect(_on_wm_close_pressed)
 	vbox.add_child(_wm_close_btn)
 	
 	# Vertical separator (soft neon red line)
 	var v_sep := ColorRect.new()
-	v_sep.custom_minimum_size = Vector2(2, 230)
+	v_sep.custom_minimum_size = Vector2(1, 180)
 	v_sep.color = Color(0.85, 0.05, 0.05, 0.3)
 	hbox.add_child(v_sep)
 	
 	# Right Side: Bullet Legend
 	var legend_vbox := VBoxContainer.new()
 	legend_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	legend_vbox.add_theme_constant_override("separation", 8)
-	legend_vbox.custom_minimum_size = Vector2(290, 0)
+	legend_vbox.add_theme_constant_override("separation", 4)
+	legend_vbox.custom_minimum_size = Vector2(235, 0)
 	hbox.add_child(legend_vbox)
 	
 	# Title of Legend
 	var legend_title := Label.new()
 	legend_title.text = "BULLET EFFECT LEGEND"
 	legend_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	legend_title.add_theme_font_size_override("font_size", 13)
+	legend_title.add_theme_font_size_override("font_size", 10)
 	legend_title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	legend_vbox.add_child(legend_title)
 	
 	# Separator line under title
 	var legend_line := ColorRect.new()
-	legend_line.custom_minimum_size = Vector2(240, 1.5)
+	legend_line.custom_minimum_size = Vector2(210, 1)
 	legend_line.color = Color(0.3, 0.3, 0.35, 0.5)
 	legend_vbox.add_child(legend_line)
 	
 	# Legend rows VBox
 	var legend_list := VBoxContainer.new()
-	legend_list.add_theme_constant_override("separation", 4)
+	legend_list.add_theme_constant_override("separation", 2)
 	legend_vbox.add_child(legend_list)
 	
 	var legends: Array[Dictionary] = [
@@ -481,23 +528,23 @@ func _create_weapon_menu() -> void:
 	_legend_labels.clear()
 	for leg in legends:
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
+		row.add_theme_constant_override("separation", 6)
 		legend_list.add_child(row)
 		
 		# Bullet Indicator Dot "●"
 		var bullet_dot := Label.new()
 		bullet_dot.text = "●"
-		bullet_dot.add_theme_font_size_override("font_size", 14)
+		bullet_dot.add_theme_font_size_override("font_size", 10)
 		bullet_dot.add_theme_color_override("font_color", leg["color"])
 		row.add_child(bullet_dot)
 		
 		var text_vbox := VBoxContainer.new()
-		text_vbox.add_theme_constant_override("separation", 1)
+		text_vbox.add_theme_constant_override("separation", 0)
 		row.add_child(text_vbox)
 		
 		var name_lbl := Label.new()
 		name_lbl.text = leg["name"]
-		name_lbl.add_theme_font_size_override("font_size", 11)
+		name_lbl.add_theme_font_size_override("font_size", 9)
 		name_lbl.add_theme_color_override("font_color", leg["color"])
 		text_vbox.add_child(name_lbl)
 		_legend_labels.append(name_lbl)
@@ -505,8 +552,8 @@ func _create_weapon_menu() -> void:
 		var desc_lbl := Label.new()
 		desc_lbl.text = leg["desc"]
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc_lbl.custom_minimum_size = Vector2(230, 0)
-		desc_lbl.add_theme_font_size_override("font_size", 9)
+		desc_lbl.custom_minimum_size = Vector2(200, 0)
+		desc_lbl.add_theme_font_size_override("font_size", 8)
 		desc_lbl.add_theme_color_override("font_color", Color(0.72, 0.72, 0.74))
 		text_vbox.add_child(desc_lbl)
 	
@@ -658,3 +705,348 @@ func _on_wm_slot2_pressed() -> void:
 
 func _on_wm_close_pressed() -> void:
 	close_weapon_menu()
+
+
+# ---------------------------------------------------------------------------
+# Character Progression & Merchant Shop Menu (Compact Glassmorphic HBox Overlay)
+# ---------------------------------------------------------------------------
+func _create_char_menu() -> void:
+	_char_menu = PanelContainer.new()
+	_char_menu.name = "CharacterShopMenu"
+	
+	# Beautiful glassmorphic panel style (neon cyan border for character progression)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.06, 0.08, 0.95)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.1, 0.8, 1.0, 0.8) # neon cyan border
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_right = 12
+	style.corner_radius_bottom_left = 12
+	style.shadow_color = Color(0.1, 0.8, 1.0, 0.15)
+	style.shadow_size = 10
+	_char_menu.add_theme_stylebox_override("panel", style)
+	
+	# Compact dimensions side-by-side (fits inside 640x360)
+	_char_menu.custom_minimum_size = Vector2(520, 240)
+	_char_menu.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_char_menu.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_char_menu.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_char_menu.visible = false
+	
+	var margin_container := MarginContainer.new()
+	margin_container.add_theme_constant_override("margin_left", 8)
+	margin_container.add_theme_constant_override("margin_right", 8)
+	margin_container.add_theme_constant_override("margin_top", 8)
+	margin_container.add_theme_constant_override("margin_bottom", 8)
+	_char_menu.add_child(margin_container)
+	
+	# Side-by-side HBox layout
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 12)
+	margin_container.add_child(hbox)
+	
+	# Left Side: Character Stats & Leveling
+	var stats_vbox := VBoxContainer.new()
+	stats_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	stats_vbox.add_theme_constant_override("separation", 4)
+	stats_vbox.custom_minimum_size = Vector2(235, 0)
+	hbox.add_child(stats_vbox)
+	
+	# Title
+	_cm_title = Label.new()
+	_cm_title.text = "CHARACTER PROGRESSION"
+	_cm_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cm_title.add_theme_font_size_override("font_size", 11)
+	_cm_title.add_theme_color_override("font_color", Color(0.1, 0.8, 1.0))
+	stats_vbox.add_child(_cm_title)
+	
+	# Info text displaying level, EXP, and skill points
+	_cm_info = Label.new()
+	_cm_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cm_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cm_info.add_theme_font_size_override("font_size", 9)
+	_cm_info.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
+	stats_vbox.add_child(_cm_info)
+	
+	# Level Up button
+	_cm_level_btn = Button.new()
+	_cm_level_btn.custom_minimum_size = Vector2(220, 22)
+	_cm_level_btn.add_theme_font_size_override("font_size", 9)
+	_cm_level_btn.pressed.connect(_on_cm_level_pressed)
+	stats_vbox.add_child(_cm_level_btn)
+	
+	# Separator line
+	var stat_sep := ColorRect.new()
+	stat_sep.custom_minimum_size = Vector2(200, 1)
+	stat_sep.color = Color(0.1, 0.8, 1.0, 0.2)
+	stats_vbox.add_child(stat_sep)
+	
+	# Stats Upgrades rows VBox
+	var upg_list := VBoxContainer.new()
+	upg_list.add_theme_constant_override("separation", 3)
+	stats_vbox.add_child(upg_list)
+	
+	# Vigor Upgrade Row
+	var vigor_row := HBoxContainer.new()
+	vigor_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vigor_row.add_theme_constant_override("separation", 10)
+	upg_list.add_child(vigor_row)
+	
+	_cm_vigor_lbl = Label.new()
+	_cm_vigor_lbl.text = "Vigor (+10 Max HP)"
+	_cm_vigor_lbl.add_theme_font_size_override("font_size", 9)
+	_cm_vigor_lbl.custom_minimum_size = Vector2(165, 0)
+	vigor_row.add_child(_cm_vigor_lbl)
+	
+	_cm_vigor_btn = Button.new()
+	_cm_vigor_btn.text = "+"
+	_cm_vigor_btn.custom_minimum_size = Vector2(30, 18)
+	_cm_vigor_btn.add_theme_font_size_override("font_size", 8)
+	_cm_vigor_btn.pressed.connect(func(): _on_upgrade_stat_pressed("hp"))
+	vigor_row.add_child(_cm_vigor_btn)
+	
+	# Haste Upgrade Row
+	var haste_row := HBoxContainer.new()
+	haste_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	haste_row.add_theme_constant_override("separation", 10)
+	upg_list.add_child(haste_row)
+	
+	_cm_haste_lbl = Label.new()
+	_cm_haste_lbl.text = "Haste (+8% Move Speed)"
+	_cm_haste_lbl.add_theme_font_size_override("font_size", 9)
+	_cm_haste_lbl.custom_minimum_size = Vector2(165, 0)
+	haste_row.add_child(_cm_haste_lbl)
+	
+	_cm_haste_btn = Button.new()
+	_cm_haste_btn.text = "+"
+	_cm_haste_btn.custom_minimum_size = Vector2(30, 18)
+	_cm_haste_btn.add_theme_font_size_override("font_size", 8)
+	_cm_haste_btn.pressed.connect(func(): _on_upgrade_stat_pressed("speed"))
+	haste_row.add_child(_cm_haste_btn)
+	
+	# Strength Upgrade Row
+	var str_row := HBoxContainer.new()
+	str_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	str_row.add_theme_constant_override("separation", 10)
+	upg_list.add_child(str_row)
+	
+	_cm_strength_lbl = Label.new()
+	_cm_strength_lbl.text = "Strength (+10% Bullet Dmg)"
+	_cm_strength_lbl.add_theme_font_size_override("font_size", 9)
+	_cm_strength_lbl.custom_minimum_size = Vector2(165, 0)
+	str_row.add_child(_cm_strength_lbl)
+	
+	_cm_strength_btn = Button.new()
+	_cm_strength_btn.text = "+"
+	_cm_strength_btn.custom_minimum_size = Vector2(30, 18)
+	_cm_strength_btn.add_theme_font_size_override("font_size", 8)
+	_cm_strength_btn.pressed.connect(func(): _on_upgrade_stat_pressed("damage"))
+	str_row.add_child(_cm_strength_btn)
+	
+	# Vertical separator (soft neon cyan line)
+	var v_sep := ColorRect.new()
+	v_sep.custom_minimum_size = Vector2(1, 180)
+	v_sep.color = Color(0.1, 0.8, 1.0, 0.3)
+	hbox.add_child(v_sep)
+	
+	# Right Side: Merchant Shop
+	var shop_vbox := VBoxContainer.new()
+	shop_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	shop_vbox.add_theme_constant_override("separation", 4)
+	shop_vbox.custom_minimum_size = Vector2(235, 0)
+	hbox.add_child(shop_vbox)
+	
+	# Shop Title
+	var shop_title := Label.new()
+	shop_title.text = "MERCHANT SHOP"
+	shop_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	shop_title.add_theme_font_size_override("font_size", 11)
+	shop_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.1)) # golden merchant theme
+	shop_vbox.add_child(shop_title)
+	
+	var shop_sub := Label.new()
+	shop_sub.text = "Spend EXP directly on supplies:"
+	shop_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	shop_sub.add_theme_font_size_override("font_size", 8)
+	shop_sub.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+	shop_vbox.add_child(shop_sub)
+	
+	# Shop list VBox
+	var shop_list := VBoxContainer.new()
+	shop_list.add_theme_constant_override("separation", 3)
+	shop_vbox.add_child(shop_list)
+	
+	# Item 1: Refill Standard Ammo
+	var row_std := HBoxContainer.new()
+	row_std.alignment = BoxContainer.ALIGNMENT_CENTER
+	row_std.add_theme_constant_override("separation", 10)
+	shop_list.add_child(row_std)
+	
+	var std_lbl := Label.new()
+	std_lbl.text = "Refill Std (+150 Bullets)"
+	std_lbl.add_theme_font_size_override("font_size", 9)
+	std_lbl.custom_minimum_size = Vector2(145, 0)
+	row_std.add_child(std_lbl)
+	
+	_cm_ammo_std_btn = Button.new()
+	_cm_ammo_std_btn.text = "50 EXP"
+	_cm_ammo_std_btn.custom_minimum_size = Vector2(55, 18)
+	_cm_ammo_std_btn.add_theme_font_size_override("font_size", 8)
+	_cm_ammo_std_btn.pressed.connect(_on_buy_ammo_std_pressed)
+	row_std.add_child(_cm_ammo_std_btn)
+	
+	# Item 2: Refill Special Ammo
+	var row_sp := HBoxContainer.new()
+	row_sp.alignment = BoxContainer.ALIGNMENT_CENTER
+	row_sp.add_theme_constant_override("separation", 10)
+	shop_list.add_child(row_sp)
+	
+	var sp_lbl := Label.new()
+	sp_lbl.text = "Refill Special (+30)"
+	sp_lbl.add_theme_font_size_override("font_size", 9)
+	sp_lbl.custom_minimum_size = Vector2(145, 0)
+	row_sp.add_child(sp_lbl)
+	
+	_cm_ammo_sp_btn = Button.new()
+	_cm_ammo_sp_btn.text = "80 EXP"
+	_cm_ammo_sp_btn.custom_minimum_size = Vector2(55, 18)
+	_cm_ammo_sp_btn.add_theme_font_size_override("font_size", 8)
+	_cm_ammo_sp_btn.pressed.connect(_on_buy_ammo_sp_pressed)
+	row_sp.add_child(_cm_ammo_sp_btn)
+	
+	# Item 3: Medkit
+	var row_heal := HBoxContainer.new()
+	row_heal.alignment = BoxContainer.ALIGNMENT_CENTER
+	row_heal.add_theme_constant_override("separation", 10)
+	shop_list.add_child(row_heal)
+	
+	var heal_lbl := Label.new()
+	heal_lbl.text = "Medkit Heal (+50 HP)"
+	heal_lbl.add_theme_font_size_override("font_size", 9)
+	heal_lbl.custom_minimum_size = Vector2(145, 0)
+	row_heal.add_child(heal_lbl)
+	
+	_cm_heal_btn = Button.new()
+	_cm_heal_btn.text = "60 EXP"
+	_cm_heal_btn.custom_minimum_size = Vector2(55, 18)
+	_cm_heal_btn.add_theme_font_size_override("font_size", 8)
+	_cm_heal_btn.pressed.connect(_on_buy_heal_pressed)
+	row_heal.add_child(_cm_heal_btn)
+	
+	# Spacer
+	var shop_spacer := Control.new()
+	shop_spacer.custom_minimum_size = Vector2(0, 1)
+	shop_vbox.add_child(shop_spacer)
+	
+	# Close button
+	_cm_close_btn = Button.new()
+	_cm_close_btn.text = "CLOSE MENU [C]"
+	_cm_close_btn.custom_minimum_size = Vector2(110, 20)
+	_cm_close_btn.add_theme_font_size_override("font_size", 8)
+	_cm_close_btn.pressed.connect(close_char_menu)
+	shop_vbox.add_child(_cm_close_btn)
+	
+	# Add to CanvasLayer
+	add_child(_char_menu)
+	
+	# Style the characters page
+	UIStyler.style_scene(_char_menu)
+
+func open_char_menu() -> void:
+	if not _player or _player.is_dead:
+		return
+	_char_menu_open = true
+	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	if _crosshair:
+		_crosshair.visible = false
+	
+	_update_char_menu()
+	_char_menu.visible = true
+	UIStyler.style_scene(_char_menu)
+
+func close_char_menu() -> void:
+	_char_menu.visible = false
+	_char_menu_open = false
+	get_tree().paused = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	if _crosshair:
+		_crosshair.visible = true
+
+func _update_char_menu() -> void:
+	if not _player or not _char_menu:
+		return
+	
+	# Update Title with Stats information
+	_cm_info.text = "LVL %d  |  EXP: %d/%d  |  Skill Points: %d" % [
+		Globals.player_level,
+		Globals.score,
+		Globals.get_next_level_cost(),
+		Globals.skill_points
+	]
+	
+	# Upgrade level cost and enable status
+	var can_lvl := Globals.check_level_up_available()
+	_cm_level_btn.text = "LEVEL UP (Cost: %d EXP)" % Globals.get_next_level_cost()
+	_cm_level_btn.disabled = not can_lvl
+	
+	# Stat upgrade buttons enable state
+	var has_sp := Globals.skill_points > 0
+	_cm_vigor_btn.disabled = not has_sp
+	_cm_haste_btn.disabled = not has_sp
+	_cm_strength_btn.disabled = not has_sp
+	
+	# Show levels in labels
+	_cm_vigor_lbl.text = "Vigor: Lv %d (+10 Max HP)" % Globals.hp_stat_level
+	_cm_haste_lbl.text = "Haste: Lv %d (+8%% Spd)" % Globals.speed_stat_level
+	_cm_strength_lbl.text = "Strength: Lv %d (+10%% Dmg)" % Globals.damage_stat_level
+	
+	# Merchant buttons status
+	_cm_ammo_std_btn.disabled = Globals.score < 50
+	_cm_heal_btn.disabled = Globals.score < 60 or _player.health >= _player.max_health
+	
+	# Special ammo can only be refilled if player has a special bullet type active currently (types 1 to 4)
+	var special_active: bool = _player.current_bullet_type > 0
+	_cm_ammo_sp_btn.disabled = Globals.score < 80 or not special_active
+
+func _on_cm_level_pressed() -> void:
+	if Globals.level_up():
+		AudioManager.play_upgrade()
+		_update_char_menu()
+
+func _on_upgrade_stat_pressed(stat_name: String) -> void:
+	if Globals.upgrade_stat(stat_name):
+		AudioManager.play_upgrade()
+		_update_char_menu()
+
+func _on_buy_ammo_std_pressed() -> void:
+	if Globals.score >= 50:
+		Globals.score -= 50
+		Globals.emit_signal("score_changed", Globals.score)
+		if _player:
+			_player.bullet_ammo[0] += 150
+			_player._notify_bullet_changed()
+		AudioManager.play_buy()
+		_update_char_menu()
+
+func _on_buy_ammo_sp_pressed() -> void:
+	if Globals.score >= 80 and _player and _player.current_bullet_type > 0:
+		Globals.score -= 80
+		Globals.emit_signal("score_changed", Globals.score)
+		_player.bullet_ammo[_player.current_bullet_type] += 30
+		_player._notify_bullet_changed()
+		AudioManager.play_buy()
+		_update_char_menu()
+
+func _on_buy_heal_pressed() -> void:
+	if Globals.score >= 60 and _player and _player.health < _player.max_health:
+		Globals.score -= 60
+		Globals.emit_signal("score_changed", Globals.score)
+		_player.heal(50)
+		AudioManager.play_buy()
+		_update_char_menu()

@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 Globals="*uid://df6d8vj06aieo"
 AudioManager="*res://Globals/audio_manager.gd"
 SceneTransition="*res://Globals/scene_transition.gd"
+DialogManager="*res://Globals/dialog_manager.gd"
 
 [dialogic]
 

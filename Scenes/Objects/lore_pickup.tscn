@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c6x8r1px8h2x"]
+
+[ext_resource type="Script" path="res://Scenes/Objects/lore_pickup.gd" id="1_lore"]
+
+[node name="LorePickup" type="Area2D"]
+script = ExtResource("1_lore")

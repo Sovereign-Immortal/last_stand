@@ -2,6 +2,7 @@
 
 [ext_resource type="StyleBox" uid="uid://dgyrm4qtxfd75" path="res://btn styles/menue buttons.tres" id="1_wkpcg"]
 [ext_resource type="Script" uid="uid://cj75oqflk184m" path="res://Scenes/menue.gd" id="2_menu"]
+[ext_resource type="Texture2D" uid="uid://cxggsfifve6ey" path="res://Last Stand Assets/UI/menu_bg.jpg" id="3_bg"]
 
 [node name="Menue" type="Control" unique_id=1013826101]
 layout_mode = 3
@@ -11,6 +12,17 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_menu")
+
+[node name="Background" type="TextureRect" parent="." unique_id=1712661606]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
 
 [node name="FogParticles" type="CPUParticles2D" parent="." unique_id=1266107308]
 position = Vector2(320, 180)
@@ -69,17 +81,18 @@ horizontal_alignment = 1
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=596054406]
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 1
-anchors_preset = 7
+anchors_preset = 8
 anchor_left = 0.5
-anchor_top = 1.0
+anchor_top = 0.5
 anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -75.0
-offset_top = -177.0
-offset_right = 75.0
-offset_bottom = -27.0
+anchor_bottom = 0.5
+offset_left = -82.0
+offset_top = 21.0
+offset_right = 238.0
+offset_bottom = 201.0
 grow_horizontal = 2
-grow_vertical = 0
+grow_vertical = 2
+scale = Vector2(0.5, 0.5)
 theme_override_constants/separation = 6
 alignment = 1
 

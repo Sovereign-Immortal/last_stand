@@ -12,6 +12,8 @@ var _distance_traveled: float = 0.0
 var bullet_type: int = 0
 var trail_particles: CPUParticles2D
 var is_enemy_bullet: bool = false
+var pierces: bool = false
+var _hit_bodies: Array[Node2D] = []
 
 # ---------------------------------------------------------------------------
 # Setup — call this right after instancing
@@ -71,6 +73,10 @@ func _physics_process(delta: float) -> void:
 # Hit detection
 # ---------------------------------------------------------------------------
 func _on_body_entered(body: Node2D) -> void:
+	if body in _hit_bodies:
+		return
+	_hit_bodies.append(body)
+
 	if is_enemy_bullet:
 		if body.is_in_group("player"):
 			if body.has_method("take_damage"):
@@ -94,13 +100,15 @@ func _on_body_entered(body: Node2D) -> void:
 			if body.has_method("apply_bullet_effect"):
 				body.apply_bullet_effect(bullet_type, _direction)
 			_spawn_hit_particles()
-			queue_free()
+			if not pierces:
+				queue_free()
 		elif body.is_in_group("player"):
 			# Player bullets ignore player
 			return
 		else:
 			_spawn_wall_hit_particles()
-			queue_free()
+			if not pierces:
+				queue_free()
 
 func _spawn_hit_particles() -> void:
 	var p := CPUParticles2D.new()
