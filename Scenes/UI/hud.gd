@@ -19,11 +19,14 @@ var _flash_timer: float = 0.0
 var _enemies_poll_timer: float = 0.0
 var _vignette_mat: ShaderMaterial = null
 var _player: CharacterBody2D = null
-var _is_paused: bool = false
 var _next_wave_timer_label: Label = null
-var bullet_label: Label = null
+var weapon_icon: Control = null
+var bullet_icon: Control = null
+var explosive_icon: Control = null
+var explosive_label: Label = null
 var _crosshair_scene := preload("res://Scenes/UI/crosshair.tscn")
 var _crosshair: Control = null
+var _minimap: Control = null
 
 # Weapon select menu variables
 var _weapon_menu: PanelContainer = null
@@ -54,7 +57,29 @@ var _cm_strength_btn: Button
 var _cm_ammo_std_btn: Button
 var _cm_ammo_sp_btn: Button
 var _cm_heal_btn: Button
+var _cm_hire_hunter_btn: Button
+var _cm_hire_pacifist_btn: Button
 var _cm_close_btn: Button
+
+# Mercenary menu variables
+var _merc_menu: PanelContainer = null
+var _merc_menu_open: bool = false
+var _selected_merc: Node2D = null
+var _merc_list_container: VBoxContainer = null
+var _merc_details_title: Label = null
+var _merc_details_bio: Label = null
+var _merc_details_hb: ProgressBar = null
+var _merc_details_weapon: Label = null
+var _merc_details_bullets: Label = null
+var _merc_w1_btn: Button = null # Pistol
+var _merc_w2_btn: Button = null # Machine Gun
+var _merc_w3_btn: Button = null # Silencer
+var _merc_b0_btn: Button = null # Standard
+var _merc_b1_btn: Button = null # Quick
+var _merc_b2_btn: Button = null # Paralysis
+var _merc_b3_btn: Button = null # Knockback
+var _merc_b4_btn: Button = null # Slow Down
+var _merc_close_btn: Button = null
 
 
 # ---------------------------------------------------------------------------
@@ -85,35 +110,77 @@ func _ready() -> void:
 	# Set up bullet type and ammo label programmatically in BottomRow
 	var bottom_row = $HUDContainer/VBox/BottomRow
 	if bottom_row:
-		var sep := Label.new()
-		sep.text = "  |  "
-		sep.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-		bottom_row.add_child(sep)
+		# Hide default weapon text label to replace it with icon
+		if weapon_label:
+			weapon_label.visible = false
 		
-		bullet_label = Label.new()
-		bullet_label.name = "BulletLabel"
-		bullet_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.0))
-		bullet_label.add_theme_font_size_override("font_size", 14)
-		bullet_label.text = "Bullet: STANDARD"
-		bottom_row.add_child(bullet_label)
+		var hud_icon_script = load("res://Scenes/UI/hud_icon.gd")
+		
+		# Create weapon icon and insert at index 0
+		weapon_icon = hud_icon_script.new()
+		weapon_icon.name = "WeaponIcon"
+		bottom_row.add_child(weapon_icon)
+		bottom_row.move_child(weapon_icon, 0)
+		
+		# Create bullet icon and insert before AmmoLabel
+		bullet_icon = hud_icon_script.new()
+		bullet_icon.name = "BulletIcon"
+		bottom_row.add_child(bullet_icon)
+		
+		# AmmoLabel is originally at index 2 (WeaponLabel(0), Separator(1), AmmoLabel(2)).
+		# Since we added weapon_icon, indices shifted. Let's find AmmoLabel and insert before it.
+		var ammo_idx = bottom_row.get_child_count() - 1
+		for i in range(bottom_row.get_child_count()):
+			if bottom_row.get_child(i) == ammo_label:
+				ammo_idx = i
+				break
+		bottom_row.move_child(bullet_icon, ammo_idx)
+		
+		# Add sep2 (" | ")
+		var sep2 := Label.new()
+		sep2.text = "  |  "
+		sep2.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		bottom_row.add_child(sep2)
+		
+		# Create explosive icon
+		explosive_icon = hud_icon_script.new()
+		explosive_icon.name = "ExplosiveIcon"
+		bottom_row.add_child(explosive_icon)
+		
+		# Create explosive label (only for ammo display)
+		explosive_label = Label.new()
+		explosive_label.name = "ExplosiveLabel"
+		explosive_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
+		explosive_label.add_theme_font_size_override("font_size", 14)
+		explosive_label.text = "[3]"
+		bottom_row.add_child(explosive_label)
 
 	Globals.score_changed.connect(_on_score_changed)
 	Globals.wave_changed.connect(_on_wave_changed)
 	Globals.combo_changed.connect(_on_combo_changed)
 	Globals.level_up_available.connect(func():
-		_show_announcement("YOU CAN LEVEL UP!\n[Press C]", Color(0.1, 0.8, 1.0))
+		if is_inside_tree():
+			_show_announcement("YOU CAN LEVEL UP!\n[Press C]", Color(0.1, 0.8, 1.0))
 	)
 	Globals.player_leveled_up.connect(func():
-		_on_score_changed(Globals.score)
-		_update_char_menu()
+		if is_inside_tree():
+			_on_score_changed(Globals.score)
+			_update_char_menu()
 	)
 
 	# Instantiate and add crosshair
 	_crosshair = _crosshair_scene.instantiate()
 	add_child(_crosshair)
 
+	# Instantiate and add minimap
+	var minimap_script = load("res://Scenes/UI/minimap.gd")
+	if minimap_script:
+		_minimap = minimap_script.new()
+		add_child(_minimap)
+
 	_create_weapon_menu()
 	_create_char_menu()
+	_create_merc_menu()
 
 	await get_tree().process_frame
 
@@ -123,10 +190,14 @@ func _ready() -> void:
 		_player.weapon_changed.connect(_on_weapon_changed)
 		_player.ammo_changed.connect(_on_ammo_changed)
 		_player.bullet_changed.connect(_on_bullet_changed)
+		if _player.has_signal("explosive_changed"):
+			_player.explosive_changed.connect(_on_explosive_changed)
 		if _player.has_signal("weapon_fired"):
 			_player.weapon_fired.connect(_on_weapon_fired)
 		_on_health_changed(_player.health, _player.max_health)
 		_on_bullet_changed(_player.BULLET_TYPES[_player.current_bullet_type]["name"], _player.bullet_ammo[_player.current_bullet_type])
+		if _player.has_signal("explosive_changed"):
+			_on_explosive_changed("Grenade", _player.explosives_ammo[0])
 
 	var wm := get_tree().get_root().get_node_or_null("Root/WaveManager")
 	if wm:
@@ -153,27 +224,45 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _char_menu_open:
 			close_char_menu()
 			return
-		_is_paused = !_is_paused
-		get_tree().paused = _is_paused
-		pause_menu.visible = _is_paused
+		if _merc_menu_open:
+			close_merc_menu()
+			return
+		var new_pause_state = !pause_menu.visible
+		get_tree().paused = new_pause_state
+		pause_menu.visible = new_pause_state
 	
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G:
-		if _player and not _player.is_dead and not _is_paused:
+		if _player and not _player.is_dead and not pause_menu.visible:
 			if _weapon_menu_open:
 				close_weapon_menu()
 			else:
 				if _char_menu_open:
 					close_char_menu()
+				if _merc_menu_open:
+					close_merc_menu()
 				open_weapon_switch_menu()
 	
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
-		if _player and not _player.is_dead and not _is_paused:
+		if _player and not _player.is_dead and not pause_menu.visible:
 			if _char_menu_open:
 				close_char_menu()
 			else:
 				if _weapon_menu_open:
 					close_weapon_menu()
+				if _merc_menu_open:
+					close_merc_menu()
 				open_char_menu()
+				
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V:
+		if _player and not _player.is_dead and not pause_menu.visible:
+			if _merc_menu_open:
+				close_merc_menu()
+			else:
+				if _weapon_menu_open:
+					close_weapon_menu()
+				if _char_menu_open:
+					close_char_menu()
+				open_merc_menu()
 
 
 func _process(delta: float) -> void:
@@ -228,7 +317,8 @@ func _on_wave_changed(new_wave: int) -> void:
 	wave_label.text = "WAVE  %d" % new_wave
 
 func _on_weapon_changed(weapon_name: String, _ammo: int) -> void:
-	weapon_label.text = weapon_name.to_upper()
+	if weapon_icon:
+		weapon_icon.set_icon("weapon", weapon_name)
 	if _player:
 		var b_name = _player.BULLET_TYPES[_player.current_bullet_type]["name"]
 		var b_ammo = _player.bullet_ammo[_player.current_bullet_type]
@@ -326,24 +416,41 @@ void fragment() {
 	move_child(vig, 0)  # render behind all other HUD nodes
 
 func _on_bullet_changed(bullet_name: String, ammo: int) -> void:
-	if bullet_label:
-		bullet_label.text = "Bullet: %s" % bullet_name.to_upper()
+	# Set text color based on bullet type
+	var colors = {
+		"Standard": Color(1.0, 0.9, 0.0),
+		"Quick": Color(0.1, 0.6, 1.0),
+		"Paralysis": Color(0.7, 0.1, 1.0),
+		"Knockback": Color(0.1, 0.9, 0.1),
+		"Slow Down": Color(0.3, 0.9, 1.0)
+	}
+	var col: Color = colors.get(bullet_name, Color(1.0, 1.0, 1.0))
+	
+	if bullet_icon:
+		bullet_icon.set_icon("bullet", bullet_name, col)
 		
-		# Set text color based on bullet type
-		var colors = {
-			"Standard": Color(1.0, 0.9, 0.0),
-			"Quick": Color(0.1, 0.6, 1.0),
-			"Paralysis": Color(0.7, 0.1, 1.0),
-			"Knockback": Color(0.1, 0.9, 0.1),
-			"Slow Down": Color(0.3, 0.9, 1.0)
-		}
-		var col: Color = colors.get(bullet_name, Color(1.0, 1.0, 1.0))
-		bullet_label.add_theme_color_override("font_color", col)
+	if ammo_label:
+		var ammo_str = "∞" if ammo == -1 else str(ammo)
+		ammo_label.text = ammo_str
+		ammo_label.add_theme_color_override("font_color", col)
+
+func _on_explosive_changed(exp_name: String, ammo: int) -> void:
+	var col = Color(0.2, 0.8, 0.2) # default green
+	if exp_name == "Landmine":
+		col = Color(0.8, 0.2, 0.2) # red
+	elif exp_name == "Ice Bomb":
+		col = Color(0.2, 0.8, 1.0) # blue
+	elif exp_name == "Skill Point Orb":
+		col = Color(1.0, 0.8, 0.1) # gold
+	elif exp_name == "Giantification":
+		col = Color(1.0, 0.5, 0.0) # orange
 		
-		if ammo_label:
-			var ammo_str = "∞" if ammo == -1 else str(ammo)
-			ammo_label.text = ammo_str
-			ammo_label.add_theme_color_override("font_color", col)
+	if explosive_icon:
+		explosive_icon.set_icon("item", exp_name, col)
+		
+	if explosive_label:
+		explosive_label.text = "[%d]" % ammo
+		explosive_label.add_theme_color_override("font_color", col)
 
 		if _crosshair:
 			_crosshair.set_crosshair_color(col)
@@ -938,6 +1045,44 @@ func _create_char_menu() -> void:
 	_cm_heal_btn.pressed.connect(_on_buy_heal_pressed)
 	row_heal.add_child(_cm_heal_btn)
 	
+	# Item 4: Hire Zombie Hunter
+	var row_hunter := HBoxContainer.new()
+	row_hunter.alignment = BoxContainer.ALIGNMENT_CENTER
+	row_hunter.add_theme_constant_override("separation", 10)
+	shop_list.add_child(row_hunter)
+	
+	var hunter_lbl := Label.new()
+	hunter_lbl.text = "Hire Hunter (zombie killer)"
+	hunter_lbl.add_theme_font_size_override("font_size", 9)
+	hunter_lbl.custom_minimum_size = Vector2(145, 0)
+	row_hunter.add_child(hunter_lbl)
+	
+	_cm_hire_hunter_btn = Button.new()
+	_cm_hire_hunter_btn.text = "120 EXP"
+	_cm_hire_hunter_btn.custom_minimum_size = Vector2(55, 18)
+	_cm_hire_hunter_btn.add_theme_font_size_override("font_size", 8)
+	_cm_hire_hunter_btn.pressed.connect(_on_hire_hunter_pressed)
+	row_hunter.add_child(_cm_hire_hunter_btn)
+	
+	# Item 5: Hire Pacifist Companion
+	var row_pacifist := HBoxContainer.new()
+	row_pacifist.alignment = BoxContainer.ALIGNMENT_CENTER
+	row_pacifist.add_theme_constant_override("separation", 10)
+	shop_list.add_child(row_pacifist)
+	
+	var pacifist_lbl := Label.new()
+	pacifist_lbl.text = "Hire Pacifist Companion"
+	pacifist_lbl.add_theme_font_size_override("font_size", 9)
+	pacifist_lbl.custom_minimum_size = Vector2(145, 0)
+	row_pacifist.add_child(pacifist_lbl)
+	
+	_cm_hire_pacifist_btn = Button.new()
+	_cm_hire_pacifist_btn.text = "60 EXP"
+	_cm_hire_pacifist_btn.custom_minimum_size = Vector2(55, 18)
+	_cm_hire_pacifist_btn.add_theme_font_size_override("font_size", 8)
+	_cm_hire_pacifist_btn.pressed.connect(_on_hire_pacifist_pressed)
+	row_pacifist.add_child(_cm_hire_pacifist_btn)
+	
 	# Spacer
 	var shop_spacer := Control.new()
 	shop_spacer.custom_minimum_size = Vector2(0, 1)
@@ -1010,6 +1155,26 @@ func _update_char_menu() -> void:
 	_cm_ammo_std_btn.disabled = Globals.score < 50
 	_cm_heal_btn.disabled = Globals.score < 60 or _player.health >= _player.max_health
 	
+	# Count active alive companions
+	var active_npcs = 0
+	for npc in get_tree().get_nodes_in_group("npcs"):
+		if is_instance_valid(npc) and npc.get("npc_name") != null and npc.get("npc_name") != "" and not npc.get("is_dead") and not npc.get("is_hostile_to_player"):
+			active_npcs += 1
+			
+	var current_hunter_cost = 120 + 50 * active_npcs
+	var current_pacifist_cost = 60 + 30 * active_npcs
+	
+	if active_npcs >= 20:
+		_cm_hire_hunter_btn.text = "MAX REACHED"
+		_cm_hire_hunter_btn.disabled = true
+		_cm_hire_pacifist_btn.text = "MAX REACHED"
+		_cm_hire_pacifist_btn.disabled = true
+	else:
+		_cm_hire_hunter_btn.text = "%d EXP" % current_hunter_cost
+		_cm_hire_hunter_btn.disabled = Globals.score < current_hunter_cost
+		_cm_hire_pacifist_btn.text = "%d EXP" % current_pacifist_cost
+		_cm_hire_pacifist_btn.disabled = Globals.score < current_pacifist_cost
+	
 	# Special ammo can only be refilled if player has a special bullet type active currently (types 1 to 4)
 	var special_active: bool = _player.current_bullet_type > 0
 	_cm_ammo_sp_btn.disabled = Globals.score < 80 or not special_active
@@ -1050,3 +1215,478 @@ func _on_buy_heal_pressed() -> void:
 		_player.heal(50)
 		AudioManager.play_buy()
 		_update_char_menu()
+
+func _on_hire_hunter_pressed() -> void:
+	var active_npcs = 0
+	for npc in get_tree().get_nodes_in_group("npcs"):
+		if is_instance_valid(npc) and npc.get("npc_name") != null and npc.get("npc_name") != "" and not npc.get("is_dead") and not npc.get("is_hostile_to_player"):
+			active_npcs += 1
+			
+	if active_npcs >= 20:
+		return
+		
+	var current_hunter_cost = 120 + 50 * active_npcs
+	if Globals.score >= current_hunter_cost and _player:
+		Globals.score -= current_hunter_cost
+		Globals.emit_signal("score_changed", Globals.score)
+		_spawn_npc("hunter")
+		AudioManager.play_buy()
+		_update_char_menu()
+
+func _on_hire_pacifist_pressed() -> void:
+	var active_npcs = 0
+	for npc in get_tree().get_nodes_in_group("npcs"):
+		if is_instance_valid(npc) and npc.get("npc_name") != null and npc.get("npc_name") != "" and not npc.get("is_dead") and not npc.get("is_hostile_to_player"):
+			active_npcs += 1
+			
+	if active_npcs >= 20:
+		return
+		
+	var current_pacifist_cost = 60 + 30 * active_npcs
+	if Globals.score >= current_pacifist_cost and _player:
+		Globals.score -= current_pacifist_cost
+		Globals.emit_signal("score_changed", Globals.score)
+		_spawn_npc("pacifist")
+		AudioManager.play_buy()
+		_update_char_menu()
+
+func _spawn_npc(type: String) -> void:
+	var npc_scene = load("res://Scenes/Humans/npc.tscn")
+	var npc = npc_scene.instantiate()
+	npc.npc_type = type
+	
+	# Determine safe position: close to player, but far from zombie spawns
+	var spawn_pos = _get_safe_spawn_position()
+	npc.global_position = spawn_pos
+	
+	# Add to the level parent of player
+	_player.get_parent().add_child(npc)
+
+func _get_safe_spawn_position() -> Vector2:
+	if not _player:
+		return Vector2.ZERO
+		
+	# Retrieve zombie spawn points from WaveManager
+	var spawn_points = []
+	var wm = get_tree().get_root().get_node_or_null("Root/WaveManager")
+	if wm:
+		spawn_points = wm._spawn_points
+		
+	# Find the closest zombie spawn point to the player
+	var closest_sp = null
+	var min_dist = INF
+	for sp in spawn_points:
+		if is_instance_valid(sp):
+			var d = _player.global_position.distance_to(sp.global_position)
+			if d < min_dist:
+				min_dist = d
+				closest_sp = sp
+				
+	# If we found a spawn point, spawn between player and that spawn point
+	if closest_sp:
+		var dir = (closest_sp.global_position - _player.global_position).normalized()
+		# Spawn at a moderate distance (e.g. 100-150 pixels) towards the spawn
+		var dist = clamp(120.0, 50.0, min_dist * 0.6)
+		var offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
+		return _player.global_position + dir * dist + offset
+		
+	# Fallback: spawn in direction of player's mouse/looking direction
+	var look_dir = (_player.get_global_mouse_position() - _player.global_position).normalized()
+	return _player.global_position + look_dir * 120.0 + Vector2(randf_range(-15, 15), randf_range(-15, 15))
+
+# ---------------------------------------------------------------------------
+# Mercenary Tab / Management Menu
+# ---------------------------------------------------------------------------
+func _create_merc_menu() -> void:
+	_merc_menu = PanelContainer.new()
+	_merc_menu.name = "MercenaryMenu"
+	
+	# Beautiful glassmorphic panel style with neon green border
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.06, 0.08, 0.95)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.2, 0.9, 0.4, 0.8) # neon green border
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_right = 12
+	style.corner_radius_bottom_left = 12
+	style.shadow_color = Color(0.2, 0.9, 0.4, 0.15)
+	style.shadow_size = 10
+	_merc_menu.add_theme_stylebox_override("panel", style)
+	
+	_merc_menu.custom_minimum_size = Vector2(520, 240)
+	_merc_menu.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_merc_menu.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_merc_menu.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_merc_menu.visible = false
+	
+	var margin_container := MarginContainer.new()
+	margin_container.add_theme_constant_override("margin_left", 8)
+	margin_container.add_theme_constant_override("margin_right", 8)
+	margin_container.add_theme_constant_override("margin_top", 8)
+	margin_container.add_theme_constant_override("margin_bottom", 8)
+	_merc_menu.add_child(margin_container)
+	
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 12)
+	margin_container.add_child(hbox)
+	
+	# Left Side: List
+	var list_vbox := VBoxContainer.new()
+	list_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	list_vbox.add_theme_constant_override("separation", 4)
+	list_vbox.custom_minimum_size = Vector2(235, 0)
+	hbox.add_child(list_vbox)
+	
+	var list_title := Label.new()
+	list_title.text = "ACTIVE MERCENARIES"
+	list_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	list_title.add_theme_font_size_override("font_size", 11)
+	list_title.add_theme_color_override("font_color", Color(0.2, 0.9, 0.4))
+	list_vbox.add_child(list_title)
+	
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(230, 160)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	list_vbox.add_child(scroll)
+	
+	_merc_list_container = VBoxContainer.new()
+	_merc_list_container.add_theme_constant_override("separation", 3)
+	scroll.add_child(_merc_list_container)
+	
+	# Vertical separator
+	var v_sep := ColorRect.new()
+	v_sep.custom_minimum_size = Vector2(1, 180)
+	v_sep.color = Color(0.2, 0.9, 0.4, 0.3)
+	hbox.add_child(v_sep)
+	
+	# Right Side: Bio & Controls
+	var details_vbox := VBoxContainer.new()
+	details_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	details_vbox.add_theme_constant_override("separation", 4)
+	details_vbox.custom_minimum_size = Vector2(235, 0)
+	hbox.add_child(details_vbox)
+	
+	_merc_details_title = Label.new()
+	_merc_details_title.text = "SELECT A COMPANION"
+	_merc_details_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_merc_details_title.add_theme_font_size_override("font_size", 11)
+	_merc_details_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.1))
+	details_vbox.add_child(_merc_details_title)
+	
+	_merc_details_bio = Label.new()
+	_merc_details_bio.text = "Select a companion from the list on the left to manage their resources."
+	_merc_details_bio.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_merc_details_bio.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_merc_details_bio.add_theme_font_size_override("font_size", 9)
+	_merc_details_bio.add_theme_color_override("font_color", Color(0.85, 0.85, 0.88))
+	details_vbox.add_child(_merc_details_bio)
+	
+	# Health Bar
+	_merc_details_hb = ProgressBar.new()
+	_merc_details_hb.max_value = 100
+	_merc_details_hb.value = 100
+	_merc_details_hb.show_percentage = false
+	_merc_details_hb.custom_minimum_size = Vector2(220, 6)
+	_merc_details_hb.visible = false
+	var sb_bg = StyleBoxFlat.new()
+	sb_bg.bg_color = Color(0.1, 0.1, 0.1, 0.8)
+	_merc_details_hb.add_theme_stylebox_override("background", sb_bg)
+	var sb_fg = StyleBoxFlat.new()
+	sb_fg.bg_color = Color(0.2, 1.0, 0.2)
+	_merc_details_hb.add_theme_stylebox_override("fill", sb_fg)
+	details_vbox.add_child(_merc_details_hb)
+	
+	_merc_details_weapon = Label.new()
+	_merc_details_weapon.add_theme_font_size_override("font_size", 8)
+	_merc_details_weapon.add_theme_color_override("font_color", Color(0.9, 0.9, 0.2))
+	_merc_details_weapon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	details_vbox.add_child(_merc_details_weapon)
+	
+	_merc_details_bullets = Label.new()
+	_merc_details_bullets.add_theme_font_size_override("font_size", 8)
+	_merc_details_bullets.add_theme_color_override("font_color", Color(0.4, 0.8, 1.0))
+	_merc_details_bullets.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	details_vbox.add_child(_merc_details_bullets)
+	
+	# Weapon equip buttons
+	var w_lbl := Label.new()
+	w_lbl.text = "GIVE WEAPON (deducts 50 bullets):"
+	w_lbl.add_theme_font_size_override("font_size", 8)
+	w_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+	details_vbox.add_child(w_lbl)
+	
+	var w_hbox := HBoxContainer.new()
+	w_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	w_hbox.add_theme_constant_override("separation", 4)
+	details_vbox.add_child(w_hbox)
+	
+	_merc_w1_btn = Button.new()
+	_merc_w1_btn.text = "Pistol"
+	_merc_w1_btn.custom_minimum_size = Vector2(70, 18)
+	_merc_w1_btn.add_theme_font_size_override("font_size", 8)
+	_merc_w1_btn.pressed.connect(func(): _on_give_weapon_pressed(0))
+	w_hbox.add_child(_merc_w1_btn)
+	
+	_merc_w2_btn = Button.new()
+	_merc_w2_btn.text = "MG"
+	_merc_w2_btn.custom_minimum_size = Vector2(70, 18)
+	_merc_w2_btn.add_theme_font_size_override("font_size", 8)
+	_merc_w2_btn.pressed.connect(func(): _on_give_weapon_pressed(1))
+	w_hbox.add_child(_merc_w2_btn)
+	
+	_merc_w3_btn = Button.new()
+	_merc_w3_btn.text = "Silencer"
+	_merc_w3_btn.custom_minimum_size = Vector2(70, 18)
+	_merc_w3_btn.add_theme_font_size_override("font_size", 8)
+	_merc_w3_btn.pressed.connect(func(): _on_give_weapon_pressed(2))
+	w_hbox.add_child(_merc_w3_btn)
+	
+	# Bullet ammo type buttons
+	var b_lbl := Label.new()
+	b_lbl.text = "GIVE BULLET TYPE (+30 special ammo):"
+	b_lbl.add_theme_font_size_override("font_size", 8)
+	b_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+	details_vbox.add_child(b_lbl)
+	
+	var b_hbox := HBoxContainer.new()
+	b_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	b_hbox.add_theme_constant_override("separation", 3)
+	details_vbox.add_child(b_hbox)
+	
+	_merc_b0_btn = Button.new()
+	_merc_b0_btn.text = "Std"
+	_merc_b0_btn.custom_minimum_size = Vector2(40, 18)
+	_merc_b0_btn.add_theme_font_size_override("font_size", 8)
+	_merc_b0_btn.pressed.connect(func(): _on_give_bullet_pressed(0))
+	b_hbox.add_child(_merc_b0_btn)
+	
+	_merc_b1_btn = Button.new()
+	_merc_b1_btn.text = "Quick"
+	_merc_b1_btn.custom_minimum_size = Vector2(40, 18)
+	_merc_b1_btn.add_theme_font_size_override("font_size", 8)
+	_merc_b1_btn.pressed.connect(func(): _on_give_bullet_pressed(1))
+	b_hbox.add_child(_merc_b1_btn)
+	
+	_merc_b2_btn = Button.new()
+	_merc_b2_btn.text = "Paraly"
+	_merc_b2_btn.custom_minimum_size = Vector2(40, 18)
+	_merc_b2_btn.add_theme_font_size_override("font_size", 8)
+	_merc_b2_btn.pressed.connect(func(): _on_give_bullet_pressed(2))
+	b_hbox.add_child(_merc_b2_btn)
+	
+	_merc_b3_btn = Button.new()
+	_merc_b3_btn.text = "Knock"
+	_merc_b3_btn.custom_minimum_size = Vector2(40, 18)
+	_merc_b3_btn.add_theme_font_size_override("font_size", 8)
+	_merc_b3_btn.pressed.connect(func(): _on_give_bullet_pressed(3))
+	b_hbox.add_child(_merc_b3_btn)
+	
+	_merc_b4_btn = Button.new()
+	_merc_b4_btn.text = "Slow"
+	_merc_b4_btn.custom_minimum_size = Vector2(40, 18)
+	_merc_b4_btn.add_theme_font_size_override("font_size", 8)
+	_merc_b4_btn.pressed.connect(func(): _on_give_bullet_pressed(4))
+	b_hbox.add_child(_merc_b4_btn)
+	
+	# Close button
+	_merc_close_btn = Button.new()
+	_merc_close_btn.text = "CLOSE MENU [V]"
+	_merc_close_btn.custom_minimum_size = Vector2(110, 20)
+	_merc_close_btn.add_theme_font_size_override("font_size", 8)
+	_merc_close_btn.pressed.connect(close_merc_menu)
+	details_vbox.add_child(_merc_close_btn)
+	
+	add_child(_merc_menu)
+	UIStyler.style_scene(_merc_menu)
+
+func open_merc_menu() -> void:
+	if not _player or _player.is_dead:
+		return
+	_merc_menu_open = true
+	_selected_merc = null
+	
+	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	if _crosshair:
+		_crosshair.visible = false
+	
+	# Select first active friendly companion automatically
+	var npcs = get_tree().get_nodes_in_group("npcs")
+	for npc in npcs:
+		if is_instance_valid(npc) and npc.get("npc_name") != null and npc.get("npc_name") != "" and not npc.get("is_dead") and not npc.get("is_hostile_to_player"):
+			_selected_merc = npc
+			break
+			
+	_update_merc_menu()
+	_merc_menu.visible = true
+	UIStyler.style_scene(_merc_menu)
+
+func close_merc_menu() -> void:
+	_merc_menu.visible = false
+	_merc_menu_open = false
+	get_tree().paused = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	if _crosshair:
+		_crosshair.visible = true
+
+func _update_merc_menu() -> void:
+	if not _player or not _merc_menu:
+		return
+		
+	# Clear previous list
+	for child in _merc_list_container.get_children():
+		child.queue_free()
+		
+	# Populate list of alive friendly companions
+	var npcs = get_tree().get_nodes_in_group("npcs")
+	for npc in npcs:
+		if is_instance_valid(npc) and npc.get("npc_name") != null and npc.get("npc_name") != "" and not npc.get("is_dead") and not npc.get("is_hostile_to_player"):
+			var btn := Button.new()
+			var npc_type_name = "Hunter" if npc.get("npc_type") == "hunter" else "Pacifist"
+			btn.text = "%s (%d%s) - %s" % [
+				npc.get("npc_name"), 
+				npc.get("npc_age"), 
+				"M" if npc.get("npc_gender") == "Male" else "F",
+				npc_type_name
+			]
+			btn.custom_minimum_size = Vector2(220, 22)
+			btn.add_theme_font_size_override("font_size", 8)
+			
+			# Highlight selected
+			if npc == _selected_merc:
+				btn.add_theme_color_override("font_color", Color(0.2, 0.9, 0.4))
+				
+			btn.pressed.connect(func():
+				_selected_merc = npc
+				_update_merc_menu()
+			)
+			_merc_list_container.add_child(btn)
+			
+	# Update right side details
+	if _selected_merc and is_instance_valid(_selected_merc) and not _selected_merc.get("is_dead"):
+		var npc = _selected_merc
+		_merc_details_title.text = npc.get("npc_name").to_upper()
+		var npc_type_name = "Zombie Hunter" if npc.get("npc_type") == "hunter" else "Pacifist Companion"
+		_merc_details_bio.text = "%d years old, %s\nClass: %s" % [
+			npc.get("npc_age"),
+			npc.get("npc_gender"),
+			npc_type_name
+		]
+		
+		# Health Bar
+		_merc_details_hb.visible = true
+		_merc_details_hb.value = npc.get("health")
+		_merc_details_hb.max_value = npc.get("max_health")
+		
+		# Weapon and bullet info
+		var w_idx = npc.get("equipped_weapon")
+		var w_name = "None"
+		if npc.get("has_gun") and w_idx >= 0 and w_idx < _player.WEAPONS.size():
+			w_name = _player.WEAPONS[w_idx]["name"]
+			
+		var b_idx = npc.get("equipped_bullet_type")
+		var b_name = _player.BULLET_TYPES[b_idx]["name"]
+		
+		_merc_details_weapon.text = "EQUIPPED WEAPON: %s" % w_name.to_upper()
+		_merc_details_bullets.text = "AMMO: %d/%d (%s BULLETS)" % [npc.get("ammo_count"), npc.get("max_ammo"), b_name.to_upper()]
+		
+		# Enable/Disable weapon buttons based on player carrying weapon and having ammo
+		_merc_w1_btn.disabled = false # Pistol always available
+		_merc_w2_btn.disabled = not (1 in _player.carried_weapons) or _player.ammo_remaining[1] <= 0
+		_merc_w3_btn.disabled = not (2 in _player.carried_weapons) or _player.ammo_remaining[2] <= 0
+		
+		# Enable/Disable bullet buttons based on player inventory
+		_merc_b0_btn.disabled = _player.bullet_ammo[0] <= 0
+		_merc_b1_btn.disabled = _player.bullet_ammo[1] <= 0
+		_merc_b2_btn.disabled = _player.bullet_ammo[2] <= 0
+		_merc_b3_btn.disabled = _player.bullet_ammo[3] <= 0
+		_merc_b4_btn.disabled = _player.bullet_ammo[4] <= 0
+	else:
+		_selected_merc = null
+		_merc_details_title.text = "NO COMPANION SELECTED"
+		_merc_details_bio.text = "Hire companions at the progression menu [C], then select them here to manage equipment."
+		_merc_details_hb.visible = false
+		_merc_details_weapon.text = ""
+		_merc_details_bullets.text = ""
+		
+		_merc_w1_btn.disabled = true
+		_merc_w2_btn.disabled = true
+		_merc_w3_btn.disabled = true
+		
+		_merc_b0_btn.disabled = true
+		_merc_b1_btn.disabled = true
+		_merc_b2_btn.disabled = true
+		_merc_b3_btn.disabled = true
+		_merc_b4_btn.disabled = true
+
+func _on_give_weapon_pressed(weapon_idx: int) -> void:
+	if not _selected_merc or not is_instance_valid(_selected_merc) or not _player:
+		return
+		
+	var npc = _selected_merc
+	var player_ammo = 0
+	if weapon_idx == 0:
+		player_ammo = _player.bullet_ammo[0]
+	elif weapon_idx == 1:
+		player_ammo = _player.ammo_remaining[1]
+	elif weapon_idx == 2:
+		player_ammo = _player.ammo_remaining[2]
+		
+	var transfer = min(50, player_ammo)
+	if transfer <= 0 and weapon_idx > 0:
+		return
+		
+	# Deduct from player
+	if weapon_idx == 0:
+		_player.bullet_ammo[0] -= transfer
+	elif weapon_idx == 1:
+		_player.ammo_remaining[1] -= transfer
+	elif weapon_idx == 2:
+		_player.ammo_remaining[2] -= transfer
+		
+	# Equip on NPC
+	npc.set("has_gun", true)
+	npc.set("equipped_weapon", weapon_idx)
+	npc.set("ammo_count", transfer)
+	
+	# Update player HUD
+	_player.emit_signal("ammo_changed", _player.ammo_remaining[_player.current_weapon_index])
+	_player.emit_signal("bullet_changed", _player.BULLET_TYPES[_player.current_bullet_type]["name"], _player.bullet_ammo[_player.current_bullet_type])
+	_player._notify_bullet_changed()
+	
+	AudioManager.play_buy()
+	_update_merc_menu()
+
+func _on_give_bullet_pressed(bullet_idx: int) -> void:
+	if not _selected_merc or not is_instance_valid(_selected_merc) or not _player:
+		return
+		
+	var npc = _selected_merc
+	var player_ammo = _player.bullet_ammo[bullet_idx]
+	if player_ammo <= 0:
+		return
+		
+	# Determine transfer amount
+	var need = npc.get("max_ammo") - npc.get("ammo_count")
+	if need <= 0:
+		need = 30 # standard transfer chunk
+	var transfer = min(need, player_ammo)
+	
+	if transfer > 0:
+		# Deduct from player
+		_player.bullet_ammo[bullet_idx] -= transfer
+		# Transfer to NPC
+		npc.set("equipped_bullet_type", bullet_idx)
+		npc.set("ammo_count", min(npc.get("max_ammo"), npc.get("ammo_count") + transfer))
+		
+		# Update player HUD
+		_player.emit_signal("bullet_changed", _player.BULLET_TYPES[_player.current_bullet_type]["name"], _player.bullet_ammo[_player.current_bullet_type])
+		_player._notify_bullet_changed()
+		
+		AudioManager.play_buy()
+		_update_merc_menu()

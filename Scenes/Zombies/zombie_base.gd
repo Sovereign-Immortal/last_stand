@@ -94,19 +94,24 @@ func _process(delta):
 	elif slow_timer > 0.0:
 		current_speed = move_speed * 0.4 # 60% slow
 
-	# Cyborg persistent tracking: always target the player node
-	if zombie_type == "cyborg zombie":
-		var p = get_tree().get_first_node_in_group("player")
-		if p and not p.get("is_dead"):
-			player_target = p
+	# Find nearest target in targets group
+	var nearest_target: Node2D = null
+	var targets = get_tree().get_nodes_in_group("targets")
+	var min_dist = INF
+	for t in targets:
+		if is_instance_valid(t) and not (t.get("is_dead") == true):
+			var dist = global_position.distance_to(t.global_position)
+			if dist < min_dist:
+				min_dist = dist
+				nearest_target = t
 
-	# Dynamically target/verify player target to avoid getting stuck or losing target
-	if player_target == null or not is_instance_valid(player_target) or player_target.get("is_dead") == true:
-		var p = get_tree().get_first_node_in_group("player")
-		if p and not p.get("is_dead"):
-			player_target = p
-		else:
-			player_target = null
+	# Cyborg persistent tracking: always target the nearest defender node
+	if zombie_type == "cyborg zombie":
+		player_target = nearest_target
+	else:
+		# Dynamically target/verify player target to avoid getting stuck or losing target
+		if player_target == null or not is_instance_valid(player_target) or player_target.get("is_dead") == true:
+			player_target = nearest_target
 
 	# Bomber priming logic
 	if zombie_type == "bomber" and player_target:
@@ -178,7 +183,7 @@ func _try_melee_attack(delta: float) -> void:
 func _elect_horde_leader():
 	var nearby = []
 	for body in $DetectionArea.get_overlapping_bodies():
-		if body.is_in_group("zombies") and body != self and body.zombie_type == zombie_type:
+		if body.is_in_group("zombies") and body != self and body.get("zombie_type") == zombie_type:
 			nearby.append(body)
 
 	if nearby.is_empty():
@@ -444,7 +449,7 @@ func _steer_toward(current: Vector2, desired: Vector2, weight: float) -> Vector2
 # 10. DetectionArea signal handlers (wired in .tscn)
 # ------------------------------------------------------------------
 func _on_detection_area_body_entered(body: Node2D) -> void:
-	if body.is_in_group("player"):
+	if body.is_in_group("targets"):
 		player_target = body
 
 func _on_detection_area_body_exited(body: Node2D) -> void:
@@ -494,6 +499,8 @@ func _die() -> void:
 			_drop_bullet_ammo()
 		else:
 			_drop_ammo()
+	if randf() < 0.08:
+		_drop_rare_item()
 	var tw := create_tween()
 	tw.tween_property(self, "scale", scale * 1.6, 0.1)
 	tw.parallel().tween_property(self, "modulate", Color(1, 0.1, 0.1, 0.0), 0.15)
@@ -527,6 +534,31 @@ func _drop_bullet_ammo() -> void:
 	pickup.bullet_type_index = randi_range(1, 4)
 	var amounts = [0, randi_range(15, 25), randi_range(5, 10), randi_range(8, 12), randi_range(10, 18)]
 	pickup.amount = amounts[pickup.bullet_type_index]
+	pickup.position = global_position
+	get_parent().add_child.call_deferred(pickup)
+
+func _drop_rare_item() -> void:
+	var item_pickup_scene = load("res://Scenes/Pickups/item_pickup.tscn")
+	if not item_pickup_scene:
+		return
+	var pickup = item_pickup_scene.instantiate()
+	
+	# Determine item type by weights
+	var roll = randf()
+	var type_idx = 0
+	if roll < 0.30:
+		type_idx = 0 # Grenade
+	elif roll < 0.55:
+		type_idx = 1 # Landmine
+	elif roll < 0.80:
+		type_idx = 2 # Ice Bomb
+	elif roll < 0.95:
+		type_idx = 3 # Skill Point Orb
+	else:
+		type_idx = 4 # Giantification (very rare)
+		
+	pickup.item_type_index = type_idx
+	pickup.amount = 1
 	pickup.position = global_position
 	get_parent().add_child.call_deferred(pickup)
 

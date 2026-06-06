@@ -194,10 +194,12 @@ func _build_controls_tab() -> void:
 	var binds = [
 		["Move", "W, A, S, D / Arrow Keys"],
 		["Aim / Shoot", "Mouse / Left Mouse Button"],
-		["Stats Menu", "C Key (Spend EXP / Buy Heal)"],
-		["Weapon Shop", "G Key (Buy Guns & Special Ammo)"],
+		["Stats Menu (C)", "Spend EXP / Buy Heal (Pauses Game)"],
+		["Weapon Shop (G)", "Buy Guns & Ammo (Pauses Game)"],
 		["Select Gun", "1, 2, 3 / Mouse Scroll Wheel"],
-		["Special Ammo", "Q Key (Forward) / R Key (Backward)"]
+		["Special Ammo", "Q Key (Forward) / R Key (Backward)"],
+		["Mercenaries (V)", "Manage Companions (Pauses Game)"],
+		["Items / Explosives", "F Key (Cycle) / X Key (Use / Throw)"]
 	]
 	
 	for pair in binds:
@@ -217,13 +219,25 @@ func _build_controls_tab() -> void:
 
 func _build_guide_tab() -> void:
 	var title := Label.new()
-	title.text = "ZOMBIE FIELD GUIDE"
+	title.text = "FIELD GUIDE: CHARACTERS & INFECTED"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 12)
 	title.add_theme_color_override("font_color", Color(0.0, 0.8, 1.0))
 	_content_vbox.add_child(title)
 	
 	var zombies_data = [
+		{
+			"name": "MERCENARY: VANGUARD CAPTAIN",
+			"stats": "HP: 300",
+			"desc": "Elite soldier 'Captain Vane'. Rebelled against orders to destroy Specimen 73. Heavy combat expert.",
+			"color": Color(1.0, 0.8, 0.2)
+		},
+		{
+			"name": "MERCENARY: RESEARCHER ELARA",
+			"stats": "HP: 150",
+			"desc": "Lab scientist who monitored Kaelan's stabilization. Fragile but knowledgeable about the Heart Cavern.",
+			"color": Color(0.4, 1.0, 0.8)
+		},
 		{
 			"name": "BASIC ZOMBIE",
 			"stats": "HP: 60 | Speed: 160 | DMG: 12",
@@ -259,6 +273,18 @@ func _build_guide_tab() -> void:
 			"stats": "HP: 80 | Speed: 130 | DMG: 8 (Ranged Status)",
 			"desc": "Wields a customized rifle. Shoots slowing, paralyzing, or toxic chemical bullets from afar.",
 			"color": Color(0.6, 0.2, 0.9)
+		},
+		{
+			"name": "MINI BOSS: SUBJECT 0 SERIES (SPINE / SKULL / HEART)",
+			"stats": "HP: 400 - 650",
+			"desc": "Infected prototypes from the old sovereign labs. Defeating unique specimens unlocks access to Cemetery Hills (Zone 2).",
+			"color": Color(1.0, 0.4, 0.0)
+		},
+		{
+			"name": "MINI BOSS: CYBORG & GIANT SPECIMENS (PROTOTYPE / GIANT)",
+			"stats": "HP: 600 - 850",
+			"desc": "Heavy armored variants patrolling Cemetery Hills. Defeating unique specimens unlocks access to Subway Tunnels (Zone 3).",
+			"color": Color(0.9, 0.1, 0.35)
 		}
 	]
 	

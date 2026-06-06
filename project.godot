@@ -11,8 +11,9 @@ config_version=5
 [application]
 
 config/name="Last Stand"
-run/main_scene="uid://crahr2lbmpbyb"
+run/main_scene="res://Scenes/UI/splash_screen.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
+boot_splash/image="res://Last Stand Assets/UI/mad_scientist_splash.png"
 config/icon="res://icon.svg"
 
 [autoload]
@@ -39,7 +40,7 @@ window/stretch/mode="canvas_items"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dialogic/plugin.cfg")
+enabled=PackedStringArray()
 
 [input]
 
@@ -170,8 +171,7 @@ ui_scroll_down={
 
 textures/canvas_textures/default_texture_filter=3
 rendering_device/driver.windows="d3d12"
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method="mobile"
 viewport/hdr_2d=true
 anti_aliasing/quality/msaa_2d=1
 anti_aliasing/quality/msaa_3d=1

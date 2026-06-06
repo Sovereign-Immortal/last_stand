@@ -32,6 +32,60 @@ func _ready() -> void:
 		
 	settings_btn.pressed.connect(_on_settings_pressed)
 	
+	# ---------------------------------------------------------------------------
+	# Cinematic Background Effects & Darkening
+	# ---------------------------------------------------------------------------
+	var bg = get_node_or_null("Background")
+	if bg:
+		# Darken the background image with a cold/ash tint
+		bg.modulate = Color(0.22, 0.22, 0.25, 1.0)
+		
+		# Add a subtle vignette overlay to focus visual attention on the center UI
+		var vignette_style := StyleBoxFlat.new()
+		vignette_style.bg_color = Color(0, 0, 0, 0)
+		vignette_style.border_width_left = 80
+		vignette_style.border_width_top = 80
+		vignette_style.border_width_right = 80
+		vignette_style.border_width_bottom = 80
+		vignette_style.border_color = Color(0.01, 0.01, 0.02, 0.85)
+		vignette_style.border_blend = true
+		
+		var vignette_panel := Panel.new()
+		vignette_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		vignette_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vignette_panel.add_theme_stylebox_override("panel", vignette_style)
+		add_child(vignette_panel)
+		move_child(vignette_panel, 1) # Position right above the background
+		
+		# Add premium cinematic rising red embers (glowing ashes)
+		var embers := CPUParticles2D.new()
+		embers.position = Vector2(320, 370)
+		embers.amount = 35
+		embers.lifetime = 6.0
+		embers.preprocess = 5.0
+		embers.speed_scale = 0.75
+		embers.randomness = 1.0
+		embers.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		embers.emission_rect_extents = Vector2(320, 10)
+		embers.direction = Vector2(0.2, -1.0)
+		embers.spread = 30.0
+		embers.gravity = Vector2(0, -6.0)
+		embers.initial_velocity_min = 30.0
+		embers.initial_velocity_max = 70.0
+		embers.scale_amount_min = 2.0
+		embers.scale_amount_max = 5.0
+		
+		var ramp := Gradient.new()
+		ramp.colors = PackedColorArray([
+			Color(1.0, 0.38, 0.1, 0.95),
+			Color(0.85, 0.15, 0.02, 0.7),
+			Color(0.25, 0.25, 0.25, 0.0)
+		])
+		embers.color_ramp = ramp
+		
+		add_child(embers)
+		move_child(embers, 2) # Position above vignette, below labels
+	
 	UIStyler.style_scene(self)
 
 # ---------------------------------------------------------------------------
@@ -164,98 +218,65 @@ func open_lore_menu() -> void:
 	content_hbox.add_theme_constant_override("separation", 15)
 	main_vbox.add_child(content_hbox)
 	
-	# Truth Web: Three Columns Layout
+	# Truth Web: Three Columns Layout with ScrollContainer to prevent overflow
+	var web_scroll := ScrollContainer.new()
+	web_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	web_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	web_scroll.size_flags_stretch_ratio = 1.4
+	web_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	web_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	content_hbox.add_child(web_scroll)
+	
 	var web_hbox := HBoxContainer.new()
 	web_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	web_hbox.add_theme_constant_override("separation", 10)
-	content_hbox.add_child(web_hbox)
+	web_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	web_hbox.add_theme_constant_override("separation", 15)
+	web_scroll.add_child(web_hbox)
 	
 	# Column 1: Implanted Memories (Red)
 	var col_implanted := VBoxContainer.new()
-	col_implanted.custom_minimum_size = Vector2(105, 0)
+	col_implanted.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_implanted.custom_minimum_size = Vector2(110, 0)
 	col_implanted.add_theme_constant_override("separation", 6)
 	web_hbox.add_child(col_implanted)
 	
 	var lbl_implanted := Label.new()
 	lbl_implanted.text = "IMPLANTED"
 	lbl_implanted.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl_implanted.add_theme_font_size_override("font_size", 9)
+	lbl_implanted.add_theme_font_size_override("font_size", 10)
 	lbl_implanted.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25))
 	col_implanted.add_child(lbl_implanted)
 	
 	# Column 2: Giant Heritage (Gold)
 	var col_heritage := VBoxContainer.new()
-	col_heritage.custom_minimum_size = Vector2(105, 0)
+	col_heritage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_heritage.custom_minimum_size = Vector2(110, 0)
 	col_heritage.add_theme_constant_override("separation", 6)
 	web_hbox.add_child(col_heritage)
 	
 	var lbl_heritage := Label.new()
 	lbl_heritage.text = "GIANT"
 	lbl_heritage.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl_heritage.add_theme_font_size_override("font_size", 9)
+	lbl_heritage.add_theme_font_size_override("font_size", 10)
 	lbl_heritage.add_theme_color_override("font_color", Color(1.0, 0.8, 0.1))
 	col_heritage.add_child(lbl_heritage)
 	
 	# Column 3: World Lore (Blue)
 	var col_world := VBoxContainer.new()
-	col_world.custom_minimum_size = Vector2(105, 0)
+	col_world.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_world.custom_minimum_size = Vector2(110, 0)
 	col_world.add_theme_constant_override("separation", 6)
 	web_hbox.add_child(col_world)
 	
 	var lbl_world := Label.new()
 	lbl_world.text = "WORLD"
 	lbl_world.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl_world.add_theme_font_size_override("font_size", 9)
+	lbl_world.add_theme_font_size_override("font_size", 10)
 	lbl_world.add_theme_color_override("font_color", Color(0.0, 0.8, 1.0))
 	col_world.add_child(lbl_world)
 	
-	# Reader Panel (Right)
-	var viewer_vbox := VBoxContainer.new()
-	viewer_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_hbox.add_child(viewer_vbox)
-	
-	var viewer_panel := PanelContainer.new()
-	viewer_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var v_style := StyleBoxFlat.new()
-	v_style.bg_color = Color(0.01, 0.03, 0.05, 0.9)
-	v_style.border_width_left = 1
-	v_style.border_width_top = 1
-	v_style.border_width_right = 1
-	v_style.border_width_bottom = 1
-	v_style.border_color = Color(0.0, 0.8, 1.0, 0.25)
-	v_style.corner_radius_top_left = 4
-	v_style.corner_radius_top_right = 4
-	v_style.corner_radius_bottom_left = 4
-	v_style.corner_radius_bottom_right = 4
-	v_style.content_margin_left = 12
-	v_style.content_margin_top = 12
-	v_style.content_margin_right = 12
-	v_style.content_margin_bottom = 12
-	viewer_panel.add_theme_stylebox_override("panel", v_style)
-	viewer_vbox.add_child(viewer_panel)
-	
-	var viewer_scroll := ScrollContainer.new()
-	viewer_panel.add_child(viewer_scroll)
-	
-	var viewer_content := VBoxContainer.new()
-	viewer_content.add_theme_constant_override("separation", 8)
-	viewer_scroll.add_child(viewer_content)
-	
-	var viewer_title := Label.new()
-	viewer_title.text = "SELECT A LOG PAGE"
-	viewer_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	viewer_title.add_theme_font_size_override("font_size", 11)
-	viewer_title.add_theme_color_override("font_color", Color(0.0, 0.8, 1.0, 0.8))
-	viewer_content.add_child(viewer_title)
-	
-	var viewer_body := Label.new()
-	viewer_body.text = "Discover hidden logs in the survival zones to uncover the truth."
-	viewer_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	viewer_body.add_theme_font_size_override("font_size", 9)
-	viewer_body.autowrap_mode = TextServer.AUTOWRAP_WORD
-	viewer_body.custom_minimum_size = Vector2(260, 0)
-	viewer_content.add_child(viewer_body)
-	
+	# Reader Panel (Right) removed in favor of popup modal
+
 	for i in range(Globals.LORE_FRAGMENTS.size()):
 		var frag = Globals.LORE_FRAGMENTS[i]
 		var is_disc = Globals.discovered_lore.has(frag["id"])
@@ -302,12 +323,7 @@ func open_lore_menu() -> void:
 			btn.add_theme_color_override("font_hover_color", Color.WHITE)
 			btn.pressed.connect(func():
 				AudioManager.play_click()
-				viewer_title.text = frag["title"].to_upper()
-				viewer_title.add_theme_color_override("font_color", theme_color)
-				var text_body := ""
-				for line in frag["dialogue"]:
-					text_body += "%s:\n\"%s\"\n\n" % [line["speaker"], line["text"]]
-				viewer_body.text = text_body
+				_open_lore_popup(frag, theme_color)
 			)
 		else:
 			btn.text = "[ PAGE %d ]" % [i + 1]
@@ -482,6 +498,15 @@ func open_map_selection() -> void:
 		map_title.add_theme_color_override("font_color", m["color"])
 		card_vbox.add_child(map_title)
 		
+		# Split Separator
+		var separator := TextureRect.new()
+		separator.texture = load("res://Last Stand Assets/UI/ui_split.png")
+		separator.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		separator.ignore_texture_size = true
+		separator.custom_minimum_size = Vector2(0, 10)
+		separator.modulate = m["color"]
+		card_vbox.add_child(separator)
+		
 		var map_desc := Label.new()
 		map_desc.text = m["desc"]
 		map_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -490,8 +515,26 @@ func open_map_selection() -> void:
 		map_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		card_vbox.add_child(map_desc)
 		
+		# Check locks
+		var is_locked := false
+		var lock_msg := ""
+		if m["path"] == "res://Scenes/Locations/cemetery_hills.tscn":
+			var count = Globals.zone1_bosses_defeated.size()
+			if count < 2:
+				is_locked = true
+				lock_msg = "LOCKED: Defeat 2 unique bosses in Sovereign Ruins (%d/2)" % count
+		elif m["path"] == "res://Scenes/Locations/subway_tunnels.tscn":
+			var count1 = Globals.zone1_bosses_defeated.size()
+			var count2 = Globals.zone2_bosses_defeated.size()
+			if count1 < 2 or count2 < 2:
+				is_locked = true
+				var z1_status = "%d/2" % count1
+				var z2_status = "%d/2" % count2
+				lock_msg = "LOCKED: Defeat unique bosses in Sovereign Ruins (%s) & Cemetery Hills (%s)" % [z1_status, z2_status]
+
 		var select_btn := Button.new()
-		select_btn.text = "DEPLOY"
+		select_btn.text = "LOCKED" if is_locked else "DEPLOY"
+		select_btn.disabled = is_locked
 		select_btn.custom_minimum_size = Vector2(0, 22)
 		select_btn.add_theme_font_size_override("font_size", 9)
 		
@@ -507,14 +550,31 @@ func open_map_selection() -> void:
 		var btn_hover := btn_normal.duplicate()
 		btn_hover.bg_color = m["color"] * 0.3
 		select_btn.add_theme_stylebox_override("hover", btn_hover)
+
+		var btn_disabled := btn_normal.duplicate()
+		btn_disabled.bg_color = Color(0.1, 0.1, 0.1, 0.5)
+		btn_disabled.border_color = Color(0.2, 0.2, 0.2, 0.5)
+		select_btn.add_theme_stylebox_override("disabled", btn_disabled)
 		
-		select_btn.pressed.connect(func():
-			AudioManager.play_click()
-			Globals.selected_map = m["path"]
-			Globals.reset()
-			SceneTransition.fade_to("res://Scenes/root.tscn")
-		)
+		if not is_locked:
+			select_btn.pressed.connect(func():
+				AudioManager.play_click()
+				Globals.selected_map = m["path"]
+				Globals.reset()
+				SceneTransition.fade_to("res://Scenes/root.tscn")
+			)
+		
 		card_vbox.add_child(select_btn)
+
+		if is_locked:
+			card.modulate = Color(0.65, 0.65, 0.65, 0.95)
+			var lock_lbl := Label.new()
+			lock_lbl.text = lock_msg
+			lock_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lock_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+			lock_lbl.add_theme_font_size_override("font_size", 7)
+			lock_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+			card_vbox.add_child(lock_lbl)
 		
 	# Back Button
 	var back_btn2 := Button.new()
@@ -530,3 +590,110 @@ func open_map_selection() -> void:
 	main_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	
 	UIStyler.style_scene(_map_panel)
+
+func _open_lore_popup(frag: Dictionary, theme_color: Color) -> void:
+	# Create overlay background to dim the rest of the screen
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var overlay_style := StyleBoxFlat.new()
+	overlay_style.bg_color = Color(0.0, 0.0, 0.0, 0.75) # Dimmed semi-transparent background
+	overlay.add_theme_stylebox_override("panel", overlay_style)
+	_lore_panel.add_child(overlay)
+	
+	# Center container to position popup
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	
+	# Popup window container
+	var popup_card := PanelContainer.new()
+	popup_card.custom_minimum_size = Vector2(340, 240)
+	
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.02, 0.04, 0.08, 0.98) # Dark aesthetic glassmorphism
+	card_style.border_width_left = 2
+	card_style.border_width_top = 2
+	card_style.border_width_right = 2
+	card_style.border_width_bottom = 2
+	card_style.border_color = theme_color
+	card_style.corner_radius_top_left = 6
+	card_style.corner_radius_top_right = 6
+	card_style.corner_radius_bottom_left = 6
+	card_style.corner_radius_bottom_right = 6
+	card_style.content_margin_left = 16
+	card_style.content_margin_top = 16
+	card_style.content_margin_right = 16
+	card_style.content_margin_bottom = 16
+	popup_card.add_theme_stylebox_override("panel", card_style)
+	center.add_child(popup_card)
+	
+	# Layout inside card
+	var card_vbox := VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 12)
+	popup_card.add_child(card_vbox)
+	
+	# Header
+	var title_lbl := Label.new()
+	title_lbl.text = frag["title"].to_upper()
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 12)
+	title_lbl.add_theme_color_override("font_color", theme_color)
+	card_vbox.add_child(title_lbl)
+	
+	# Split Separator
+	var separator := TextureRect.new()
+	separator.texture = load("res://Last Stand Assets/UI/ui_split.png")
+	separator.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	separator.ignore_texture_size = true
+	separator.custom_minimum_size = Vector2(0, 10)
+	separator.modulate = theme_color
+	card_vbox.add_child(separator)
+	
+	# Dialogue/Body Scroll
+	var body_scroll := ScrollContainer.new()
+	body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card_vbox.add_child(body_scroll)
+	
+	var body_vbox := VBoxContainer.new()
+	body_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body_vbox.add_theme_constant_override("separation", 6)
+	body_scroll.add_child(body_vbox)
+	
+	for line in frag["dialogue"]:
+		var line_lbl := Label.new()
+		line_lbl.text = "%s:\n\"%s\"\n" % [line["speaker"], line["text"]]
+		line_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+		line_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		line_lbl.add_theme_font_size_override("font_size", 8)
+		line_lbl.add_theme_color_override("font_color", line.get("color", Color(0.8, 0.8, 0.8)))
+		body_vbox.add_child(line_lbl)
+		
+	# Close button
+	var close_btn := Button.new()
+	close_btn.text = "DISMISS"
+	close_btn.custom_minimum_size = Vector2(80, 22)
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.add_theme_font_size_override("font_size", 9)
+	
+	var close_btn_style := StyleBoxFlat.new()
+	close_btn_style.bg_color = theme_color * 0.15
+	close_btn_style.border_width_left = 1
+	close_btn_style.border_width_top = 1
+	close_btn_style.border_width_right = 1
+	close_btn_style.border_width_bottom = 1
+	close_btn_style.border_color = theme_color
+	close_btn_style.corner_radius_top_left = 3
+	close_btn_style.corner_radius_top_right = 3
+	close_btn_style.corner_radius_bottom_left = 3
+	close_btn_style.corner_radius_bottom_right = 3
+	close_btn.add_theme_stylebox_override("normal", close_btn_style)
+	
+	var close_btn_hover := close_btn_style.duplicate()
+	close_btn_hover.bg_color = theme_color * 0.3
+	close_btn.add_theme_stylebox_override("hover", close_btn_hover)
+	
+	close_btn.pressed.connect(func():
+		AudioManager.play_click()
+		overlay.queue_free()
+	)
+	card_vbox.add_child(close_btn)

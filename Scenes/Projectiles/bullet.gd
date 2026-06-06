@@ -78,7 +78,7 @@ func _on_body_entered(body: Node2D) -> void:
 	_hit_bodies.append(body)
 
 	if is_enemy_bullet:
-		if body.is_in_group("player"):
+		if body.is_in_group("player") or body.is_in_group("npcs"):
 			if body.has_method("take_damage"):
 				body.take_damage(damage)
 			# Apply effect on player
@@ -87,6 +87,14 @@ func _on_body_entered(body: Node2D) -> void:
 			_spawn_hit_particles()
 			queue_free()
 		elif body.is_in_group("zombies"):
+			if has_meta("from_hostile_npc") and get_meta("from_hostile_npc") == true:
+				if body.has_method("take_damage"):
+					body.take_damage(damage)
+				if body.has_method("apply_bullet_effect"):
+					body.apply_bullet_effect(bullet_type, _direction)
+				_spawn_hit_particles()
+				queue_free()
+				return
 			# Enemy bullets ignore other zombies
 			return
 		else:
@@ -99,6 +107,14 @@ func _on_body_entered(body: Node2D) -> void:
 				body.take_damage(damage)
 			if body.has_method("apply_bullet_effect"):
 				body.apply_bullet_effect(bullet_type, _direction)
+			_spawn_hit_particles()
+			if not pierces:
+				queue_free()
+		elif body.is_in_group("npcs"):
+			if body.has_method("take_damage"):
+				body.take_damage(damage)
+			if body.has_method("provoke"):
+				body.provoke()
 			_spawn_hit_particles()
 			if not pierces:
 				queue_free()

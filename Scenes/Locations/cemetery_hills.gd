@@ -68,7 +68,7 @@ func _ready() -> void:
 		var pos := Vector2(r.randf_range(-1200, 1200), r.randf_range(-1200, 1200))
 		if pos.length() < 180.0:
 			continue # clear around player spawn
-		_spawn_tombstone(pos, r.randi_range(0, 1) == 0)
+		_spawn_tombstone(pos, r.randi_range(0, 1) == 0, i)
 
 	# Spawn 6 larger brick Crypts
 	for i in range(6):
@@ -77,9 +77,18 @@ func _ready() -> void:
 			continue
 		_spawn_crypt(pos, i)
 
-func _spawn_tombstone(pos: Vector2, is_cross: bool) -> void:
+	# Spawn Vanguard Captain story NPC
+	var npc_scene = load("res://Scenes/Humans/npc.tscn")
+	if npc_scene:
+		var cap = npc_scene.instantiate()
+		cap.npc_type = "vanguard_captain"
+		cap.global_position = Vector2(80, -120)
+		add_child(cap)
+
+func _spawn_tombstone(pos: Vector2, is_cross: bool, index: int) -> void:
 	var sb := StaticBody2D.new()
 	sb.global_position = pos
+	sb.name = "Tombstone_%d" % index
 	
 	var col := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
@@ -98,6 +107,10 @@ func _spawn_tombstone(pos: Vector2, is_cross: bool) -> void:
 		Vector2(12, 10)
 	])
 	poly.color = Color(0.38, 0.4, 0.43) # spooky slate grey
+	
+	# If this is a special grave, give it a subtle blue-ish edge glow
+	if index == 10 or index == 20:
+		poly.color = Color(0.28, 0.42, 0.53) # slightly tinted cyan-grey
 	sb.add_child(poly)
 	
 	# Detail markings
@@ -114,6 +127,111 @@ func _spawn_tombstone(pos: Vector2, is_cross: bool) -> void:
 		rip_line.default_color = Color(0.18, 0.2, 0.22)
 		sb.add_child(rip_line)
 		
+	# Setup interactive area
+	var area := Area2D.new()
+	var area_col := CollisionShape2D.new()
+	var area_circle := CircleShape2D.new()
+	area_circle.radius = 50.0
+	area_col.shape = area_circle
+	area.add_child(area_col)
+	sb.add_child(area)
+	
+	# Visual Prompt
+	var prompt := Label.new()
+	prompt.text = "[E] Inspect Grave"
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	prompt.add_theme_font_size_override("font_size", 9)
+	prompt.add_theme_color_override("font_color", Color(1.0, 1.0, 0.4))
+	prompt.position = Vector2(-50, -45)
+	prompt.custom_minimum_size = Vector2(100, 20)
+	prompt.visible = false
+	sb.add_child(prompt)
+	
+	sb.set_meta("is_interacted", false)
+	
+	# Interactive method
+	var interact_callable = func():
+		if sb.get_meta("is_interacted"):
+			DialogManager.show_dialog([
+				{
+					"speaker": "Grave",
+					"text": "The ground is silent.",
+					"color": Color(0.5, 0.5, 0.5)
+				}
+			])
+			return
+			
+		sb.set_meta("is_interacted", true)
+		prompt.visible = false
+		AudioManager.play_click()
+		
+		if index == 10:
+			DialogManager.show_dialog([
+				{
+					"speaker": "System",
+					"text": "You inspect the dusty grave... A glowing note slides out of a crack in the stone.",
+					"color": Color(0.3, 0.8, 1.0)
+				}
+			])
+			# Drop Lore Note 5
+			var lp = load("res://Scenes/Objects/lore_pickup.tscn").instantiate()
+			lp.lore_id = 5
+			lp.global_position = sb.global_position + Vector2(0, 32.0)
+			get_parent().add_child(lp)
+			
+			# Glow color
+			poly.color = Color(0.1, 0.6, 0.8)
+		elif index == 20:
+			DialogManager.show_dialog([
+				{
+					"speaker": "System",
+					"text": "Under the mossy soil, you find a sealed metal container containing a note.",
+					"color": Color(0.3, 0.8, 1.0)
+				}
+			])
+			# Drop Lore Note 6
+			var lp = load("res://Scenes/Objects/lore_pickup.tscn").instantiate()
+			lp.lore_id = 6
+			lp.global_position = sb.global_position + Vector2(0, 32.0)
+			get_parent().add_child(lp)
+			
+			# Glow color
+			poly.color = Color(0.1, 0.6, 0.8)
+		else:
+			# Atmospheric inscription
+			var inscriptions := [
+				"Here lies a forgotten resident of the Vanguard colony.",
+				"Rest in Peace. 'We tried our best to hold the wall.'",
+				"The stone is worn down by wind and rain.",
+				"A silent headstone. The name has faded away.",
+				"This grave is empty. The occupant rose again...",
+				"A simple grave with a hand-carved inscription: 'Never forget us.'"
+			]
+			var ins = inscriptions[index % inscriptions.size()]
+			DialogManager.show_dialog([
+				{
+					"speaker": "Grave Inscription",
+					"text": ins,
+					"color": Color(0.7, 0.7, 0.75)
+				}
+			])
+			poly.color = Color(0.25, 0.25, 0.25) # faded color
+			
+	sb.set_meta("interact_method", interact_callable)
+	
+	# Connect triggers
+	area.body_entered.connect(func(body):
+		if body.is_in_group("player") and not sb.get_meta("is_interacted"):
+			prompt.visible = true
+			body.set_meta("active_crypt", sb)
+	)
+	area.body_exited.connect(func(body):
+		if body.is_in_group("player"):
+			prompt.visible = false
+			if body.has_meta("active_crypt") and body.get_meta("active_crypt") == sb:
+				body.remove_meta("active_crypt")
+	)
+	
 	add_child(sb)
 
 func _spawn_crypt(pos: Vector2, index: int) -> void:

@@ -96,6 +96,7 @@ func _create_ui() -> void:
 	_prompt_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.55))
 	vbox.add_child(_prompt_label)
 	
+	UIStyler.style_scene(_panel)
 	add_child(_panel)
 
 func show_dialog(lines: Array) -> void:

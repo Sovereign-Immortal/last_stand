@@ -30,6 +30,27 @@ func _ready() -> void:
 	for px in [-600, -200, 200, 600]:
 		for py in [-150, 150, 350]:
 			_spawn_pillar(Vector2(px, py))
+			
+	# Spawn 3 Lore pickups in the subway corridors
+	var coords := [
+		Vector2(-500.0, -100.0),
+		Vector2(500.0, 300.0),
+		Vector2(0.0, 150.0)
+	]
+	var lore_ids := [9, 10, 11]
+	for i in range(3):
+		var lp = load("res://Scenes/Objects/lore_pickup.tscn").instantiate()
+		lp.lore_id = lore_ids[i]
+		lp.global_position = coords[i]
+		add_child(lp)
+
+	# Spawn Researcher Elara story NPC
+	var npc_scene = load("res://Scenes/Humans/npc.tscn")
+	if npc_scene:
+		var elara = npc_scene.instantiate()
+		elara.npc_type = "researcher_elara"
+		elara.global_position = Vector2(0, -100)
+		add_child(elara)
 
 func _exit_tree() -> void:
 	# Disable echo filters when exiting level

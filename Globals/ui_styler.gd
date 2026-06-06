@@ -9,6 +9,15 @@ static func get_theme() -> Theme:
 
 	_theme = Theme.new()
 
+	# Load a modern premium system font to replace Godot's default pixelated font
+	var main_font := SystemFont.new()
+	main_font.font_names = PackedStringArray(["Montserrat", "Outfit", "Segoe UI", "Trebuchet MS", "sans-serif"])
+	main_font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_ONE_HALF
+	main_font.multichannel_signed_distance_field = true
+	main_font.msdf_pixel_range = 16
+	main_font.msdf_size = 48
+	_theme.default_font = main_font
+
 	# -----------------------------------------------------------------------
 	# 1. BUTTON STYLES
 	# -----------------------------------------------------------------------

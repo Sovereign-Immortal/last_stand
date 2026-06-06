@@ -102,6 +102,9 @@ var active_slot: int = 0
 var ammo_remaining: Array[int] = [-1, 0, 0] # MG/Silencer start locked at 0
 var bullet_ammo: Array[int] = [300, 0, 0, 0, 0] # Starting standard bullet at 300, others 0
 var current_bullet_type: int = 0
+var explosives_ammo: Array[int] = [3, 3, 3, 0, 0] # Grenade, Landmine, Ice Bomb, Skill Orb, Giantification
+var current_explosive_index: int = 0
+var explosive_cooldown: float = 0.0
 var fire_cooldown: float = 0.0
 var is_firing: bool = false
 var stun_timer: float = 0.0
@@ -130,6 +133,7 @@ signal health_changed(new_health: int, max_h: int)
 signal weapon_changed(weapon_name: String, ammo: int)
 signal ammo_changed(ammo: int)
 signal bullet_changed(bullet_name: String, ammo: int)
+signal explosive_changed(exp_name: String, ammo: int)
 signal weapon_fired
 
 # ---------------------------------------------------------------------------
@@ -137,6 +141,24 @@ signal weapon_fired
 # ---------------------------------------------------------------------------
 func _ready() -> void:
 	add_to_group("player")
+	add_to_group("targets")
+
+	# Restore weapons, ammo, and items from Globals if player wasn't killed
+	if not Globals.player_was_killed:
+		carried_weapons.assign(Globals.persisted_carried_weapons)
+		ammo_remaining.assign(Globals.persisted_ammo_remaining)
+		bullet_ammo.assign(Globals.persisted_bullet_ammo)
+		explosives_ammo.assign(Globals.persisted_explosives_ammo)
+		current_weapon_index = Globals.persisted_current_weapon_index
+		current_bullet_type = Globals.persisted_current_bullet_type
+		current_explosive_index = Globals.persisted_current_explosive_index
+		
+		# Match active slot
+		for i in range(carried_weapons.size()):
+			if carried_weapons[i] == current_weapon_index:
+				active_slot = i
+				break
+
 	health = max_health
 	# Bullet container at root level (keeps bullets from moving with camera)
 	var root := get_tree().root.get_child(0)
@@ -158,25 +180,41 @@ func _ready() -> void:
 	Globals.player_leveled_up.connect(_on_player_leveled_up)
 	_on_player_leveled_up()
 
+	# Emit initial signals to update HUD elements
+	var weapon = WEAPONS[current_weapon_index]
+	emit_signal("weapon_changed", weapon["name"], ammo_remaining[current_weapon_index])
+	var exp_names = ["Grenade", "Landmine", "Ice Bomb"]
+	emit_signal("explosive_changed", exp_names[current_explosive_index], explosives_ammo[current_explosive_index])
+
 	# Start of level introductory monologue reflecting the wake-up nightmare
 	get_tree().create_timer(0.3).timeout.connect(func():
-		DialogManager.show_dialog([
-			{
-				"speaker": "Kaelan",
-				"text": "I am sorry mom I wont be able to go to school tomorrow",
-				"color": Color(0.2, 0.9, 1.0)
-			},
-			{
-				"speaker": "Kaelan",
-				"text": "mom (?)",
-				"color": Color(0.2, 0.9, 1.0)
-			},
-			{
-				"speaker": "Kaelan",
-				"text": "I cant recall her.. what was I even doing before?",
-				"color": Color(0.2, 0.9, 1.0)
-			}
-		])
+		var dialogue = []
+		if Globals.selected_map.ends_with("cemetery_hills.tscn"):
+			dialogue = [
+				{ "speaker": "Kaelan", "text": "The air here... it smells like wet earth and ancient decay.", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "Are these graves for the infected, or for those who fell before?", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "My memories are fragmented... I must find the truth buried here.", "color": Color(0.2, 0.9, 1.0) }
+			]
+		elif Globals.selected_map.ends_with("subway_tunnels.tscn"):
+			dialogue = [
+				{ "speaker": "Kaelan", "text": "It's so dark... the echoing of the tracks feels almost like a heartbeat.", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "They hid something down here. Away from the surface. Away from the light.", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "I need to be careful. The echoes might attract them.", "color": Color(0.2, 0.9, 1.0) }
+			]
+		elif Globals.selected_map.ends_with("heart_cavern.tscn"):
+			dialogue = [
+				{ "speaker": "Kaelan", "text": "This place... it pulses. I can feel it in my chest.", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "The Crimson Heart. It's calling to me.", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "Is this where the nightmare ends? Or where it truly begins?", "color": Color(0.2, 0.9, 1.0) }
+			]
+		else:
+			dialogue = [
+				{ "speaker": "Kaelan", "text": "I am sorry mom I wont be able to go to school tomorrow", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "mom (?)", "color": Color(0.2, 0.9, 1.0) },
+				{ "speaker": "Kaelan", "text": "I cant recall her.. what was I even doing before?", "color": Color(0.2, 0.9, 1.0) }
+			]
+			
+		DialogManager.show_dialog(dialogue)
 	)
 
 func _physics_process(delta: float) -> void:
@@ -188,7 +226,7 @@ func _physics_process(delta: float) -> void:
 		stun_timer -= delta
 	if slow_timer > 0.0:
 		slow_timer -= delta
-
+ 
 	# --- Screen shake ---
 	if _shake_timer > 0.0:
 		_shake_timer -= delta
@@ -225,6 +263,8 @@ func _physics_process(delta: float) -> void:
 	# --- Weapon cooldown tick ---
 	if fire_cooldown > 0.0:
 		fire_cooldown -= delta
+	if explosive_cooldown > 0.0:
+		explosive_cooldown -= delta
 
 	# --- Shooting ---
 	var weapon := WEAPONS[current_weapon_index]
@@ -252,9 +292,12 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("interact"):
 		if has_meta("active_crypt"):
 			var crypt = get_meta("active_crypt")
-			if crypt and crypt.has_meta("interact_method"):
-				var method = crypt.get_meta("interact_method")
-				method.call()
+			if is_instance_valid(crypt):
+				if crypt.has_meta("interact_method"):
+					var method = crypt.get_meta("interact_method")
+					method.call()
+			else:
+				remove_meta("active_crypt")
 
 	# --- Weapon switching ---
 	if Input.is_action_just_pressed("weapon_1"):
@@ -265,6 +308,19 @@ func _physics_process(delta: float) -> void:
 		_cycle_weapon(1)
 	elif Input.is_action_just_pressed("ui_scroll_up"):
 		_cycle_weapon(-1)
+
+	save_state_to_globals()
+
+func save_state_to_globals() -> void:
+	if is_dead:
+		return
+	Globals.persisted_carried_weapons = carried_weapons.duplicate()
+	Globals.persisted_ammo_remaining = ammo_remaining.duplicate()
+	Globals.persisted_bullet_ammo = bullet_ammo.duplicate()
+	Globals.persisted_explosives_ammo = explosives_ammo.duplicate()
+	Globals.persisted_current_weapon_index = current_weapon_index
+	Globals.persisted_current_bullet_type = current_bullet_type
+	Globals.persisted_current_explosive_index = current_explosive_index
 
 # ---------------------------------------------------------------------------
 # Shooting
@@ -522,6 +578,8 @@ func _on_player_leveled_up() -> void:
 
 func _die() -> void:
 	is_dead = true
+	Globals.player_was_killed = true
+	Globals.save()
 	emit_signal("died")
 	set_physics_process(false)
 	Engine.time_scale = 0.25
@@ -589,3 +647,79 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cycle_bullet_type()
 		elif event.keycode == KEY_R:
 			_cycle_bullet_type_backward()
+		elif event.keycode == KEY_F:
+			_cycle_explosive()
+		elif event.keycode == KEY_X:
+			_throw_explosive()
+
+func _cycle_explosive() -> void:
+	current_explosive_index = (current_explosive_index + 1) % 5
+	_notify_explosive_changed()
+	AudioManager.play_empty()
+
+func _notify_explosive_changed() -> void:
+	var names = ["Grenade", "Landmine", "Ice Bomb", "Skill Point Orb", "Giantification"]
+	emit_signal("explosive_changed", names[current_explosive_index], explosives_ammo[current_explosive_index])
+
+func _throw_explosive() -> void:
+	if explosive_cooldown > 0.0:
+		return
+	if explosives_ammo[current_explosive_index] <= 0:
+		AudioManager.play_empty()
+		return
+		
+	# Handle Skill Point Orb (index 3)
+	if current_explosive_index == 3:
+		explosives_ammo[3] -= 1
+		explosive_cooldown = 0.5
+		Globals.skill_points += 1
+		AudioManager.play_empty()
+		_notify_explosive_changed()
+		return
+		
+	# Handle Giantification (index 4)
+	if current_explosive_index == 4:
+		if is_giant:
+			return # Stacking giantification is blocked
+		explosives_ammo[4] -= 1
+		explosive_cooldown = 1.0
+		_notify_explosive_changed()
+		trigger_giantification_item()
+		return
+		
+	# Handle throwables (0, 1, 2)
+	explosives_ammo[current_explosive_index] -= 1
+	explosive_cooldown = 1.0 # 1 second cooldown between throws
+	
+	var exp_script = load("res://Scenes/Projectiles/explosive.gd")
+	var exp = exp_script.new()
+	var type_name = "grenade"
+	if current_explosive_index == 1:
+		type_name = "landmine"
+	elif current_explosive_index == 2:
+		type_name = "ice_bomb"
+		
+	var throw_dir = (get_global_mouse_position() - global_position).normalized()
+	var throw_speed = 600.0 if current_explosive_index != 1 else 0.0 # landmine doesn't move
+	
+	exp.setup(type_name, throw_dir, throw_speed)
+	exp.global_position = global_position
+	exp._player_ref = self
+	
+	get_tree().root.add_child(exp)
+	_notify_explosive_changed()
+
+func add_item_ammo(item_index: int, amount: int) -> void:
+	if item_index >= 0 and item_index < explosives_ammo.size():
+		explosives_ammo[item_index] += amount
+		if item_index == current_explosive_index:
+			_notify_explosive_changed()
+
+func trigger_giantification_item() -> void:
+	enter_giant_flashback(true)
+	_fire_giant_shockwave()
+	
+	var timer := get_tree().create_timer(12.0)
+	await timer.timeout
+	if is_instance_valid(self) and not is_dead:
+		enter_giant_flashback(false)

@@ -1,15 +1,13 @@
-[gd_scene load_steps=6 format=3 uid="uid://begl2ttvay6ao"]
+[gd_scene format=3 uid="uid://begl2ttvay6ao"]
 
-[ext_resource type="Script" path="res://Scenes/root.gd" id="1_root"]
+[ext_resource type="Script" uid="uid://pfq78g8nx1ig" path="res://Scenes/root.gd" id="1_root"]
 [ext_resource type="PackedScene" uid="uid://bs8n16ux10fuw" path="res://Scenes/Locations/map_1.tscn" id="2_8pvmw"]
 [ext_resource type="PackedScene" uid="uid://cmrkcwcuxr3ux" path="res://Scenes/Humans/player.tscn" id="2_vnucn"]
-[ext_resource type="PackedScene" path="res://Scenes/UI/hud.tscn" id="6_hud"]
-[ext_resource type="Script" path="res://Scenes/WaveManager/wave_manager.gd" id="7_wm"]
+[ext_resource type="PackedScene" uid="uid://b08bsld3y7mlk" path="res://Scenes/UI/hud.tscn" id="6_hud"]
+[ext_resource type="Script" uid="uid://dwu86v332a0ie" path="res://Scenes/WaveManager/wave_manager.gd" id="7_wm"]
 
 [node name="Root" type="Node2D" unique_id=1705530067]
 script = ExtResource("1_root")
-
-[node name="Map1" parent="." unique_id=1859994748 instance=ExtResource("2_8pvmw")]
 
 [node name="Player" parent="." unique_id=518327402 instance=ExtResource("2_vnucn")]
 
@@ -23,14 +21,13 @@ rotation_smoothing_enabled = true
 drag_horizontal_enabled = true
 drag_vertical_enabled = true
 
+[node name="Map1" parent="." unique_id=1859994748 instance=ExtResource("2_8pvmw")]
+
 [node name="Enemies" type="Node2D" parent="." unique_id=1097347597]
 
-; ── Wave Manager ─────────────────────────────────────────────────────────────
 [node name="WaveManager" type="Node" parent="." unique_id=2001000001]
 script = ExtResource("7_wm")
 
-; ── Spawn Points (perimeter of map_1) ────────────────────────────────────────
-; Top edge
 [node name="SP_TopRight" type="Marker2D" parent="WaveManager" unique_id=2001000010]
 position = Vector2(600, -350)
 
@@ -40,14 +37,12 @@ position = Vector2(0, -400)
 [node name="SP_TopLeft" type="Marker2D" parent="WaveManager" unique_id=2001000012]
 position = Vector2(-600, -320)
 
-; Right edge
 [node name="SP_Right" type="Marker2D" parent="WaveManager" unique_id=2001000020]
 position = Vector2(1150, 150)
 
 [node name="SP_RightBottom" type="Marker2D" parent="WaveManager" unique_id=2001000021]
 position = Vector2(1100, 650)
 
-; Bottom edge
 [node name="SP_BottomRight" type="Marker2D" parent="WaveManager" unique_id=2001000030]
 position = Vector2(600, 870)
 
@@ -57,11 +52,10 @@ position = Vector2(-50, 900)
 [node name="SP_BottomLeft" type="Marker2D" parent="WaveManager" unique_id=2001000032]
 position = Vector2(-700, 820)
 
-; Left edge
 [node name="SP_Left" type="Marker2D" parent="WaveManager" unique_id=2001000040]
 position = Vector2(-950, 200)
 
 [node name="SP_LeftTop" type="Marker2D" parent="WaveManager" unique_id=2001000041]
 position = Vector2(-870, -180)
 
-[node name="HUD" parent="." instance=ExtResource("6_hud")]
+[node name="HUD" parent="." unique_id=488434546 instance=ExtResource("6_hud")]
