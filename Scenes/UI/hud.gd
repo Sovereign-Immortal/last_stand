@@ -27,6 +27,7 @@ var explosive_label: Label = null
 var _crosshair_scene := preload("res://Scenes/UI/crosshair.tscn")
 var _crosshair: Control = null
 var _minimap: Control = null
+var _touch_controls = null
 
 # Weapon select menu variables
 var _weapon_menu: PanelContainer = null
@@ -198,6 +199,15 @@ func _ready() -> void:
 		_on_bullet_changed(_player.BULLET_TYPES[_player.current_bullet_type]["name"], _player.bullet_ammo[_player.current_bullet_type])
 		if _player.has_signal("explosive_changed"):
 			_on_explosive_changed("Grenade", _player.explosives_ammo[0])
+
+	# Touch controls — shown only on touch-capable devices
+	var touch_script = load("res://Scenes/UI/touch_controls.gd")
+	if touch_script:
+		_touch_controls = touch_script.new()
+		_touch_controls.name = "TouchControls"
+		add_child(_touch_controls)
+		if _player:
+			_touch_controls._player_ref = _player
 
 	var wm := get_tree().get_root().get_node_or_null("Root/WaveManager")
 	if wm:

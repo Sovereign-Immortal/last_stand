@@ -275,7 +275,12 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
 	move_and_slide()
-	look_at(get_global_mouse_position())
+	# Aim: use touch aim pos if a touch control is active, else mouse
+	var _tc = _get_touch_controls()
+	if _tc and _tc.visible and _tc._shoot_touch_idx != -1:
+		pass  # touch_controls._process() already called look_at
+	else:
+		look_at(get_global_mouse_position())
 
 	# --- Weapon cooldown tick ---
 	if fire_cooldown > 0.0:
@@ -746,3 +751,12 @@ func trigger_giantification_item() -> void:
 	await timer.timeout
 	if is_instance_valid(self) and not is_dead:
 		enter_giant_flashback(false)
+
+# ---------------------------------------------------------------------------
+# Touch Controls helper
+# ---------------------------------------------------------------------------
+func _get_touch_controls():
+	var hud = get_tree().get_first_node_in_group("hud")
+	if hud:
+		return hud.get_node_or_null("TouchControls")
+	return null
