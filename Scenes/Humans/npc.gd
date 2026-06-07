@@ -264,7 +264,7 @@ func _physics_process(delta: float) -> void:
 # ---------------------------------------------------------------------------
 # Behaviors
 # ---------------------------------------------------------------------------
-func _process_hunter_behavior(delta: float) -> void:
+func _process_hunter_behavior(_delta: float) -> void:
 	# If no gun or out of ammo, follow player for safety!
 	if not has_gun or ammo_count <= 0:
 		var player = get_tree().get_first_node_in_group("player")
@@ -306,12 +306,12 @@ func _process_hunter_behavior(delta: float) -> void:
 		elif wander_timer <= 0.0 or nav_agent.is_navigation_finished():
 			_pick_new_wander_target()
 
-func _process_pacifist_behavior(delta: float) -> void:
+func _process_pacifist_behavior(_delta: float) -> void:
 	# Pacifist just wanders around the map
 	if wander_timer <= 0.0 or nav_agent.is_navigation_finished():
 		_pick_new_wander_target()
 
-func _process_hostile_behavior(delta: float) -> void:
+func _process_hostile_behavior(_delta: float) -> void:
 	var target: Node2D = null
 	var min_dist = 999999.0
 	

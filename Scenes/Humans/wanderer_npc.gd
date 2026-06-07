@@ -350,7 +350,7 @@ func _apply_purchase(player: Node, item: Dictionary) -> void:
 				if player.has_method("_update_health_bar"):
 					player._update_health_bar()
 
-func _do_lore(player: Node) -> void:
+func _do_lore(_player: Node) -> void:
 	var line: String = SCHOLAR_LINES.pick_random() as String
 	var dialog := [
 		{"speaker": "Wandering Scholar", "text": line, "color": Color(0.4, 0.85, 1.0)}
@@ -462,7 +462,7 @@ func _die() -> void:
 			var lp: Node2D = lore_pickup_scene.instantiate() as Node2D
 			lp.lore_id = _lore_id
 			lp.global_position = global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20))
-			get_parent().add_child(lp)
+			get_parent().add_child.call_deferred(lp)
 
 	# Drop small ammo
 	var bullet_pickup_scene = load("res://Scenes/Pickups/bullet_pickup.tscn")
@@ -471,7 +471,7 @@ func _die() -> void:
 		bp.bullet_type_index = 0
 		bp.amount = randi_range(15, 30)
 		bp.global_position = global_position
-		get_parent().add_child(bp)
+		get_parent().add_child.call_deferred(bp)
 
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector2(1.5, 1.5), 0.1)

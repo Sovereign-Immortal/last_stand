@@ -494,12 +494,18 @@ func _die() -> void:
 			
 	AudioManager.play_zombie_die()
 	Globals.add_score(score_value)
-	if randf() < 0.4:
+	var wave_factor = 1.0 + (Globals.current_wave - 1) * 0.03
+	var strength_factor = strength / 2.0
+	
+	var scaled_ammo_drop_rate = clampf(0.4 * strength_factor * wave_factor, 0.2, 0.8)
+	var scaled_rare_drop_rate = clampf(0.08 * strength_factor * wave_factor, 0.04, 0.35)
+	
+	if randf() < scaled_ammo_drop_rate:
 		if randf() < 0.35:
 			_drop_bullet_ammo()
 		else:
 			_drop_ammo()
-	if randf() < 0.08:
+	if randf() < scaled_rare_drop_rate:
 		_drop_rare_item()
 	var tw := create_tween()
 	tw.tween_property(self, "scale", scale * 1.6, 0.1)
@@ -511,29 +517,39 @@ func _drop_ammo() -> void:
 	# Weight toward MG ammo (index 1) since it depletes fastest
 	var weights := [0.15, 0.60, 0.25]
 	var roll := randf()
+	
+	var wave_factor = 1.0 + (Globals.current_wave - 1) * 0.03
+	var strength_factor = strength / 2.0
+	var amount_mult = strength_factor * wave_factor
+	
 	if roll < weights[0]:
 		# Spawn standard bullet pickup instead of obsolete gun ammo
 		var bullet_pickup := _bullet_pickup_scene.instantiate()
 		bullet_pickup.bullet_type_index = 0
-		bullet_pickup.amount = randi_range(30, 55)
+		bullet_pickup.amount = clampi(int(randi_range(30, 55) * amount_mult), 15, 150)
 		bullet_pickup.position = global_position
 		get_parent().add_child.call_deferred(bullet_pickup)
 		pickup.queue_free()
 		return
 	elif roll < weights[0] + weights[1]:
 		pickup.weapon_index = 1
-		pickup.amount = randi_range(20, 40)
+		pickup.amount = clampi(int(randi_range(20, 40) * amount_mult), 10, 120)
 	else:
 		pickup.weapon_index = 2
-		pickup.amount = randi_range(5, 12)
+		pickup.amount = clampi(int(randi_range(5, 12) * amount_mult), 3, 40)
 	pickup.position = global_position
 	get_parent().add_child.call_deferred(pickup)
 
 func _drop_bullet_ammo() -> void:
 	var pickup := _bullet_pickup_scene.instantiate()
 	pickup.bullet_type_index = randi_range(1, 4)
+	
+	var wave_factor = 1.0 + (Globals.current_wave - 1) * 0.03
+	var strength_factor = strength / 2.0
+	var amount_mult = strength_factor * wave_factor
+	
 	var amounts = [0, randi_range(15, 25), randi_range(5, 10), randi_range(8, 12), randi_range(10, 18)]
-	pickup.amount = amounts[pickup.bullet_type_index]
+	pickup.amount = clampi(int(amounts[pickup.bullet_type_index] * amount_mult), 3, 75)
 	pickup.position = global_position
 	get_parent().add_child.call_deferred(pickup)
 
@@ -543,16 +559,23 @@ func _drop_rare_item() -> void:
 		return
 	var pickup = item_pickup_scene.instantiate()
 	
-	# Determine item type by weights
-	var roll = randf()
+	# Determine item type by dynamically scaled weights based on wave and strength
+	var w0 = maxf(10.0, 30.0 - Globals.current_wave * 0.5 - strength * 1.5)
+	var w1 = maxf(15.0, 25.0 - Globals.current_wave * 0.2)
+	var w2 = 25.0
+	var w3 = 15.0 + Globals.current_wave * 0.8 + strength * 2.0
+	var w4 = 5.0 + Globals.current_wave * 0.4 + strength * 1.5
+	
+	var total_w = w0 + w1 + w2 + w3 + w4
+	var roll = randf() * total_w
 	var type_idx = 0
-	if roll < 0.30:
+	if roll < w0:
 		type_idx = 0 # Grenade
-	elif roll < 0.55:
+	elif roll < w0 + w1:
 		type_idx = 1 # Landmine
-	elif roll < 0.80:
+	elif roll < w0 + w1 + w2:
 		type_idx = 2 # Ice Bomb
-	elif roll < 0.95:
+	elif roll < w0 + w1 + w2 + w3:
 		type_idx = 3 # Skill Point Orb
 	else:
 		type_idx = 4 # Giantification (very rare)

@@ -21,6 +21,17 @@ var _fly_offset: float = 0.0
 var _regen_active: bool = false
 var _poison_pools: Array = []
 
+# Mini-boss borrowed abilities state
+var _lunge_duration: float = 0.0
+var _lunge_dir: Vector2 = Vector2.ZERO
+var _disarm_ring_radius: float = 0.0
+var _draw_disarm_ring: bool = false
+var _shield_active: bool = false
+var _shield_timer: float = 0.0
+var _draw_repulsion_ring: bool = false
+var _repulsion_ring_radius: float = 0.0
+var _repulsion_attract: bool = false
+
 # Whip / sword arm
 var _whip_extended: bool = false
 var _whip_timer: float = 0.0
@@ -71,7 +82,7 @@ const QUOTES := [
 func _ready() -> void:
 	add_to_group("zombies")
 	add_to_group("true_boss")
-	collision_layer = 4
+	collision_layer = 2
 	collision_mask = 7
 	scale = Vector2(2.2, 2.2)
 	
@@ -218,7 +229,7 @@ func _enter_phase(p: int) -> void:
 	
 	DialogManager.show_dialog([
 		{"speaker": "Anurag Shre", "text": QUOTES[p], "color": pdata["color"].lightened(0.5)},
-	])
+	], false)
 	
 	# Phase-specific setup
 	match p:
@@ -249,6 +260,25 @@ func _process(delta: float) -> void:
 	phase_timer += delta
 	ability_cd -= delta
 	_whip_timer -= delta
+	
+	if _shield_active:
+		_shield_timer -= delta
+		if _shield_timer <= 0.0:
+			_shield_active = false
+			queue_redraw()
+			
+	if _lunge_duration > 0.0:
+		_lunge_duration -= delta
+		velocity = _lunge_dir * (move_speed * 3.5)
+		move_and_slide()
+		if player_target and global_position.distance_to(player_target.global_position) < 60.0:
+			if player_target.has_method("take_damage"):
+				player_target.take_damage(25.0)
+				var push_dir = global_position.direction_to(player_target.global_position).normalized()
+				if player_target.get("velocity") != null:
+					player_target.velocity += push_dir * 300.0
+			_lunge_duration = 0.0
+		return
 	
 	# Regen in Phase 0
 	if _regen_active and health < MAX_HEALTH * 0.84:
@@ -312,14 +342,167 @@ func _update_wings() -> void:
 
 # ── Phase abilities ───────────────────────────────────────────────────────────
 func _trigger_phase_ability(dist: float) -> void:
-	match phase:
-		0: _ability_whip_strike()
-		1: _ability_detached_orbit()
-		2: _ability_covetous_drain()
-		3: _ability_integrity_pulse()
-		4: _ability_ruthless_barrage()
-		5: _ability_cunning_trap()
-	ability_cd = randf_range(5.0, 9.0)
+	var use_secondary = (randf() < 0.5)
+	if use_secondary:
+		match phase:
+			0: _ability_boss_lunge()
+			1: _ability_boss_teleport()
+			2: _ability_boss_summon()
+			3: _ability_boss_disarm()
+			4: _ability_boss_shield()
+			5: _ability_boss_repulsion()
+	else:
+		match phase:
+			0: _ability_whip_strike()
+			1: _ability_detached_orbit()
+			2: _ability_covetous_drain()
+			3: _ability_integrity_pulse()
+			4: _ability_ruthless_barrage()
+			5: _ability_cunning_trap()
+	ability_cd = randf_range(4.0, 7.0)
+
+func _ability_boss_lunge() -> void:
+	if not player_target: return
+	_lunge_duration = 0.8
+	_lunge_dir = global_position.direction_to(player_target.global_position).normalized()
+	queue_redraw()
+
+func _ability_boss_teleport() -> void:
+	if not player_target: return
+	var angle = randf() * TAU
+	var target_pos = player_target.global_position + Vector2.from_angle(angle) * randf_range(120.0, 200.0)
+	
+	var ring := Line2D.new()
+	ring.width = 3.0
+	ring.default_color = Color(0.7, 0.2, 0.9, 0.8)
+	var pts := PackedVector2Array()
+	for i in range(17): pts.append(Vector2.from_angle(i * TAU / 16.0) * 30.0)
+	ring.points = pts
+	get_parent().add_child(ring)
+	ring.global_position = target_pos
+	
+	var tw := create_tween()
+	tw.tween_property(ring, "scale", Vector2(1.5, 1.5), 0.4)
+	tw.parallel().tween_property(ring, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(func():
+		ring.queue_free()
+		if is_dead: return
+		global_position = target_pos
+		for i in range(8):
+			_shoot_bullet(Vector2.from_angle(i * TAU / 8.0), 15.0)
+	)
+
+func _ability_boss_summon() -> void:
+	var zombie_scene = load("res://Scenes/Zombies/zombie_slow.tscn")
+	if not zombie_scene:
+		zombie_scene = load("res://Scenes/Zombies/zombie_base.tscn")
+		
+	for i in range(3):
+		var angle = randf_range(0, TAU)
+		var spawn_pos = global_position + Vector2.from_angle(angle) * 80.0
+		var z = zombie_scene.instantiate()
+		z.scale = Vector2(0.9, 0.9)
+		z.max_health = 60.0
+		z.health = 60.0
+		z.global_position = spawn_pos
+		get_parent().add_child(z)
+		
+	var portal_indicator = Line2D.new()
+	portal_indicator.width = 3.0
+	portal_indicator.default_color = Color(0.8, 0.1, 0.1, 0.7)
+	var pts = PackedVector2Array()
+	for j in range(17):
+		pts.append(Vector2.from_angle(j * (TAU / 16.0)) * 80.0)
+	portal_indicator.points = pts
+	add_child(portal_indicator)
+	
+	var tw = create_tween()
+	tw.tween_property(portal_indicator, "scale", Vector2(1.6, 1.6), 0.5)
+	tw.parallel().tween_property(portal_indicator, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(portal_indicator.queue_free)
+
+func _ability_boss_disarm() -> void:
+	_draw_disarm_ring = true
+	_disarm_ring_radius = 10.0
+	queue_redraw()
+	
+	var tw = create_tween()
+	tw.tween_property(self, "_disarm_ring_radius", 260.0, 0.8)
+	tw.tween_callback(func():
+		_draw_disarm_ring = false
+		queue_redraw()
+		
+		if not player_target or is_dead: return
+		var dist = global_position.distance_to(player_target.global_position)
+		if dist <= 260.0:
+			if player_target.has_method("_select_weapon_slot") and player_target.get("carried_weapons").size() > 1:
+				var current_slot = player_target.get("active_slot")
+				var new_slot = (current_slot + 1) % player_target.get("carried_weapons").size()
+				player_target._select_weapon_slot(new_slot)
+				
+				var disarm_lbl := Label.new()
+				disarm_lbl.text = "WEAPON JAMMED / FORCED SWAP!"
+				disarm_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				disarm_lbl.add_theme_font_size_override("font_size", 12)
+				disarm_lbl.add_theme_color_override("font_color", Color(0.9, 0.2, 0.9))
+				disarm_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+				disarm_lbl.add_theme_constant_override("outline_size", 4)
+				disarm_lbl.position = Vector2(-120, -60)
+				player_target.add_child(disarm_lbl)
+				
+				var tw_lbl = create_tween()
+				tw_lbl.tween_property(disarm_lbl, "position:y", -80.0, 1.2)
+				tw_lbl.parallel().tween_property(disarm_lbl, "modulate:a", 0.0, 1.2)
+				tw_lbl.tween_callback(disarm_lbl.queue_free)
+	)
+
+func _ability_boss_shield() -> void:
+	_shield_active = true
+	_shield_timer = 4.0
+	queue_redraw()
+	DialogManager.show_dialog([{"speaker": "Anurag Shre", "text": "Deploying electromagnetic shielding barrier.", "color": Color(0.1, 0.7, 1.0)}], false)
+
+func _ability_boss_repulsion() -> void:
+	_repulsion_attract = (randf() < 0.5)
+	_draw_repulsion_ring = true
+	_repulsion_ring_radius = 240.0 if _repulsion_attract else 10.0
+	queue_redraw()
+	
+	var tw = create_tween()
+	if _repulsion_attract:
+		tw.tween_property(self, "_repulsion_ring_radius", 10.0, 0.8)
+	else:
+		tw.tween_property(self, "_repulsion_ring_radius", 240.0, 0.8)
+		
+	tw.tween_callback(func():
+		_draw_repulsion_ring = false
+		queue_redraw()
+		
+		if not player_target or is_dead: return
+		var dist = global_position.distance_to(player_target.global_position)
+		if dist <= 250.0:
+			var force_dir = global_position.direction_to(player_target.global_position).normalized()
+			if _repulsion_attract:
+				force_dir = -force_dir
+			if player_target.get("velocity") != null:
+				player_target.velocity += force_dir * 950.0
+			player_target.take_damage(12.0)
+	)
+
+func _draw() -> void:
+	if _shield_active:
+		draw_arc(Vector2.ZERO, 32.0, 0, TAU, 32, Color(0.1, 0.7, 1.0, 0.8), 3.0)
+		draw_circle(Vector2.ZERO, 32.0, Color(0.1, 0.5, 1.0, 0.18))
+		
+	if _draw_disarm_ring:
+		draw_circle(Vector2.ZERO, _disarm_ring_radius, Color(0.8, 0.2, 0.9, 0.2))
+		draw_arc(Vector2.ZERO, _disarm_ring_radius, 0.0, TAU, 32, Color(0.8, 0.2, 0.9, 0.75), 2.0)
+		
+	if _draw_repulsion_ring:
+		var color_circle = Color(0.2, 0.6, 1.0, 0.2) if _repulsion_attract else Color(1.0, 0.4, 0.2, 0.2)
+		var color_border = Color(0.1, 0.5, 0.9, 0.75) if _repulsion_attract else Color(0.9, 0.3, 0.1, 0.75)
+		draw_circle(Vector2.ZERO, _repulsion_ring_radius, color_circle)
+		draw_arc(Vector2.ZERO, _repulsion_ring_radius, 0.0, TAU, 32, color_border, 2.0)
 
 func _ability_whip_strike() -> void:
 	if not player_target: return
@@ -372,7 +555,7 @@ func _ability_covetous_drain() -> void:
 	tw.tween_property(line, "modulate:a", 0.0, 0.8)
 	tw.tween_callback(line.queue_free)
 	
-	DialogManager.show_dialog([{"speaker": "Anurag Shre", "text": "Your ammunition is MY resource now.", "color": Color(0.6, 0.1, 0.8)}])
+	DialogManager.show_dialog([{"speaker": "Anurag Shre", "text": "Your ammunition is MY resource now.", "color": Color(0.6, 0.1, 0.8)}], false)
 
 func _ability_integrity_pulse() -> void:
 	_invincible = true
@@ -410,18 +593,18 @@ func _ability_ruthless_barrage() -> void:
 		_shoot_bullet(spread, 25.0)
 	
 	# Explosion ring
-	var exp := Line2D.new()
-	exp.width = 5.0
-	exp.default_color = Color(0.9, 0.2, 0.05, 0.9)
+	var exp_ring := Line2D.new()
+	exp_ring.width = 5.0
+	exp_ring.default_color = Color(0.9, 0.2, 0.05, 0.9)
 	var pts := PackedVector2Array()
 	for i in range(17): pts.append(Vector2.from_angle(i * TAU / 16.0) * 20.0)
-	exp.points = pts
-	get_parent().add_child(exp)
-	exp.global_position = player_target.global_position
+	exp_ring.points = pts
+	get_parent().add_child(exp_ring)
+	exp_ring.global_position = player_target.global_position
 	var tw := create_tween()
-	tw.tween_property(exp, "scale", Vector2(8.0, 8.0), 0.5)
-	tw.parallel().tween_property(exp, "modulate:a", 0.0, 0.5)
-	tw.tween_callback(exp.queue_free)
+	tw.tween_property(exp_ring, "scale", Vector2(8.0, 8.0), 0.5)
+	tw.parallel().tween_property(exp_ring, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(exp_ring.queue_free)
 	
 	if player_target.has_method("take_damage"):
 		player_target.take_damage(20.0)
@@ -433,7 +616,7 @@ func _ability_cunning_trap() -> void:
 		var offset = Vector2(randf_range(-100, 100), randf_range(-100, 100))
 		var pool_pos = player_target.global_position + offset
 		_spawn_poison_pool(pool_pos)
-	DialogManager.show_dialog([{"speaker": "Anurag Shre", "text": "The perfect game is won before the opponent knows he is playing.", "color": Color(0.1, 0.8, 0.1)}])
+	DialogManager.show_dialog([{"speaker": "Anurag Shre", "text": "The perfect game is won before the opponent knows he is playing.", "color": Color(0.1, 0.8, 0.1)}], false)
 
 func _spawn_poison_pool(pos: Vector2) -> void:
 	var pool := Polygon2D.new()
@@ -472,6 +655,12 @@ func _flash_hit() -> void:
 # ── Damage & Death ────────────────────────────────────────────────────────────
 func take_damage(amount: float) -> void:
 	if is_dead or _invincible: return
+	if _shield_active:
+		var tw := create_tween()
+		tw.tween_property(_body_poly, "modulate", Color(0.3, 0.8, 1.0), 0.05)
+		tw.tween_property(_body_poly, "modulate", PHASES[phase]["color"], 0.15)
+		return
+		
 	if _reflecting:
 		# Reflect 40% back at player
 		var player = get_tree().get_first_node_in_group("player")
@@ -527,17 +716,42 @@ func _die() -> void:
 		{"speaker": "Anurag Shre", "text": "Im...immortal... this is... impossible...", "color": Color(0.2, 0.9, 0.3)},
 		{"speaker": "Anurag Shre", "text": "The formula... was PERFECT. I read every novel... every scripture...", "color": Color(0.15, 0.6, 0.2)},
 		{"speaker": "Kaelan", "text": "You were never immortal. You were just afraid of being forgotten.", "color": Color(0.2, 0.8, 1.0)},
-		{"speaker": "System", "text": "Anurag Shre has fallen. The Heart Cavern trembles. All four altars glow with final power.", "color": Color(1.0, 0.85, 0.1)},
+		{"speaker": "System", "text": "Anurag Shre has fallen. The Heart Cavern trembles. All altars glow with final power.", "color": Color(1.0, 0.85, 0.1)},
 	])
 	
-	# Massive drops
+	# Notify the cavern to restore walls and enrage surviving mini-bosses
+	var cavern = get_parent()
+	if cavern and cavern.has_method("on_true_boss_defeated"):
+		cavern.on_true_boss_defeated()
+	Globals.discover_lore(28)
+	Globals.discover_lore(29)
+	Globals.discover_lore(30)
+	
+	# Massive drops scaled by wave number
 	var item_scene = load("res://Scenes/Pickups/item_pickup.tscn")
 	if item_scene:
-		for i in range(5):
+		var num_items = clampi(5 + int(Globals.current_wave / 2.0), 5, 12)
+		for i in range(num_items):
 			var it: Node2D = item_scene.instantiate() as Node2D
-			it.item_type_index = randi_range(0, 4)
+			
+			# Weighted item index
+			var w0 = maxf(10.0, 30.0 - Globals.current_wave * 0.5 - 15.0)
+			var w1 = maxf(15.0, 25.0 - Globals.current_wave * 0.2)
+			var w2 = 25.0
+			var w3 = 15.0 + Globals.current_wave * 0.8 + 20.0
+			var w4 = 5.0 + Globals.current_wave * 0.4 + 15.0
+			var total_w = w0 + w1 + w2 + w3 + w4
+			var roll = randf() * total_w
+			var type_idx = 0
+			if roll < w0: type_idx = 0
+			elif roll < w0 + w1: type_idx = 1
+			elif roll < w0 + w1 + w2: type_idx = 2
+			elif roll < w0 + w1 + w2 + w3: type_idx = 3
+			else: type_idx = 4
+			
+			it.item_type_index = type_idx
 			it.global_position = global_position + Vector2(randf_range(-80,80), randf_range(-80,80))
-			get_parent().add_child(it)
+			get_parent().add_child.call_deferred(it)
 	
 	Globals.add_score(5000)
 	

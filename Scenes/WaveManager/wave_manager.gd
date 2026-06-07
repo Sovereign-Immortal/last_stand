@@ -75,6 +75,18 @@ func _ready() -> void:
 	var root := get_parent()
 	var map := root.get_node_or_null("Map1")
 	if map:
+		# Fix missing TileSet source ID 0 to prevent Godot engine warnings/errors when baking navigation
+		var tilemaps: Array = []
+		if map is TileMap:
+			tilemaps.append(map)
+		for child in map.get_children():
+			if child is TileMap:
+				tilemaps.append(child)
+		for tm in tilemaps:
+			var ts: TileSet = tm.tile_set
+			if ts and ts.has_source(1) and not ts.has_source(0):
+				ts.add_source(ts.get_source(1), 0)
+
 		var nav_region := NavigationRegion2D.new()
 		nav_region.name = "NavigationRegion"
 		
@@ -97,7 +109,6 @@ func _ready() -> void:
 		nav_poly.add_outline(outline)
 		nav_poly.agent_radius = 24.0
 		nav_poly.parsed_geometry_type = NavigationPolygon.PARSED_GEOMETRY_STATIC_COLLIDERS
-		nav_poly.make_polygons_from_outlines()
 		nav_region.navigation_polygon = nav_poly
 		
 		# Bake the navigation mesh synchronously (false = on main thread) so it's ready immediately
@@ -323,6 +334,35 @@ func _ready() -> void:
 # Main coroutine loop
 # ---------------------------------------------------------------------------
 func _run_loop() -> void:
+	if Globals.dev_boss_testing:
+		var boss_type = Globals.dev_boss_type
+		if boss_type == "true_boss":
+			var base_scene = load("res://Scenes/Zombies/zombie_base.tscn")
+			if base_scene:
+				var boss = base_scene.instantiate()
+				boss.set_script(load("res://Scenes/Zombies/true_boss.gd"))
+				boss.global_position = Vector2(0, 0)
+				boss.add_to_group("zombies")
+				_enemies_node.add_child(boss)
+		else:
+			_spawn_mini_boss(boss_type)
+		
+		while get_tree().get_nodes_in_group("zombies").size() > 0:
+			await get_tree().create_timer(0.5).timeout
+			if not _running:
+				return
+		
+		DialogManager.show_dialog([
+			{"speaker": "System", "text": "DEV TESTING: Boss defeated successfully!", "color": Color(0.2, 0.9, 0.3)},
+			{"speaker": "System", "text": "Returning to main menu...", "color": Color(0.2, 0.9, 0.3)}
+		])
+		while DialogManager.is_active():
+			await get_tree().create_timer(0.1).timeout
+		
+		Globals.dev_boss_testing = false
+		SceneTransition.fade_to("res://Scenes/menue.tscn")
+		return
+
 	while _running:
 		_current_wave += 1
 		
@@ -506,13 +546,13 @@ func _build_spawn_list(wave_num: int) -> Array:
 		_:
 			var n := wave_num - 5
 			var mult := 1.0 + n * 0.07
-			list = _batch("slow",   clampi(2 + n / 2, 2, 8),  mult) \
+			list = _batch("slow",   clampi(2 + int(n / 2.0), 2, 8),  mult) \
 				 + _batch("base",   clampi(2 + n,     2, 12), mult) \
 				 + _batch("cyborg", clampi(n - 1,     0, 4),  mult) \
-				 + _batch("heart",  clampi(1 + n / 2, 1, 4),  mult) \
-				 + _batch("bomber", clampi(2 + n / 2, 2, 6),  mult) \
-				 + _batch("gunner", clampi(1 + n / 2, 1, 5),  mult) \
-				 + _batch("hostile_hunter", clampi(wave_num / 3, 2, 5), 1.0)
+				 + _batch("heart",  clampi(1 + int(n / 2.0), 1, 4),  mult) \
+				 + _batch("bomber", clampi(2 + int(n / 2.0), 2, 6),  mult) \
+				 + _batch("gunner", clampi(1 + int(n / 2.0), 1, 5),  mult) \
+				 + _batch("hostile_hunter", clampi(int(wave_num / 3.0), 2, 5), 1.0)
 	list.shuffle()
 	return list
 
@@ -534,9 +574,9 @@ func _spawn_zombie(data: Dictionary) -> void:
 			# Add to zombies group so that they count as wave enemies
 			hunter.add_to_group("zombies")
 			
-			var sp: Node2D = _spawn_points.pick_random()
+			var hunter_sp: Node2D = _spawn_points.pick_random()
 			_enemies_node.add_child(hunter)
-			hunter.global_position = sp.global_position + Vector2(randf_range(-40, 40), randf_range(-40, 40))
+			hunter.global_position = hunter_sp.global_position + Vector2(randf_range(-40, 40), randf_range(-40, 40))
 		return
 
 	var scene: PackedScene = _scene_slow
@@ -551,15 +591,16 @@ func _spawn_zombie(data: Dictionary) -> void:
 	var mult: float = data["mult"]
 	if z.get("max_health") != null: z.max_health  = z.max_health  * mult
 	if z.get("move_speed") != null: z.move_speed   = z.move_speed  * clampf(mult, 1.0, 2.5)
+	if z.get("strength") != null: z.strength = z.strength * mult
 
-	var sp: Node2D = _spawn_points.pick_random()
+	var zombie_sp: Node2D = _spawn_points.pick_random()
 	_enemies_node.add_child(z)
-	z.global_position = sp.global_position + Vector2(
+	z.global_position = zombie_sp.global_position + Vector2(
 		randf_range(-40, 40), randf_range(-40, 40))
 
 	# 15% chance to spawn a specialty bullet pickup near the spawn point / horde
 	if randf() < 0.15:
-		_spawn_bullet_pickup(sp.global_position)
+		_spawn_bullet_pickup(zombie_sp.global_position)
 
 func _spawn_bullet_pickup(pos: Vector2) -> void:
 	var pickup = _bullet_pickup_scene.instantiate()
@@ -617,4 +658,7 @@ func _spawn_mini_boss(boss_type: String) -> void:
 		
 		var sp = _spawn_points.pick_random()
 		_enemies_node.add_child(boss)
-		boss.global_position = sp.global_position
+		if boss_type == "heart":
+			boss.global_position = Vector2(0, -60)
+		else:
+			boss.global_position = sp.global_position

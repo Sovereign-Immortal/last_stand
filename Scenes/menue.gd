@@ -2,7 +2,6 @@ extends Control
 
 @onready var vbox: VBoxContainer = $VBoxContainer
 var _lore_panel: Panel = null
-var _keybinds_popup: PanelContainer = null
 
 func _ready() -> void:
 	# Check if a save exists to offer Continue Progress
@@ -142,7 +141,6 @@ func open_lore_menu() -> void:
 	var main_vbox := VBoxContainer.new()
 	main_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	main_vbox.add_theme_constant_override("separation", 10)
-	main_vbox.layout_mode = 1
 	main_vbox.offset_left = 20
 	main_vbox.offset_top = 15
 	main_vbox.offset_right = -20
@@ -349,7 +347,7 @@ func open_lore_menu() -> void:
 	endings_hbox.add_theme_constant_override("separation", 16)
 	endings_vbox.add_child(endings_hbox)
 	
-	var all_endings = ["Destroy", "Absorb", "Seal", "Veil's End"]
+	var all_endings = ["Destroy", "Absorb", "Seal", "Veil's End", "Truest True Ending"]
 	for end_name in all_endings:
 		var end_lbl := Label.new()
 		end_lbl.add_theme_font_size_override("font_size", 9)
@@ -363,6 +361,8 @@ func open_lore_menu() -> void:
 				end_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 			elif end_name == "Veil's End":
 				end_lbl.add_theme_color_override("font_color", Color(0.1, 0.8, 0.9))
+			elif end_name == "Truest True Ending":
+				end_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.0))
 		else:
 			end_lbl.text = "[ ??? ]"
 			end_lbl.add_theme_color_override("font_color", Color(0.3, 0.3, 0.3))
@@ -412,7 +412,6 @@ func open_map_selection() -> void:
 	var main_vbox := VBoxContainer.new()
 	main_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	main_vbox.add_theme_constant_override("separation", 10)
-	main_vbox.layout_mode = 1
 	main_vbox.offset_left = 20
 	main_vbox.offset_top = 15
 	main_vbox.offset_right = -20

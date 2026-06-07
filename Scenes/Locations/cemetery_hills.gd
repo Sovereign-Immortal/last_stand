@@ -46,8 +46,6 @@ const CRYPT_DIALOGS := [
 	]
 ]
 
-var _crypt_count: int = 0
-
 func _ready() -> void:
 	# Build the floor grid
 	var ground := TileMapLayer.new()
@@ -57,7 +55,7 @@ func _ready() -> void:
 	# Grass tile from atlas source 0, coordinate (0, 7)
 	for x in range(-60, 60):
 		for y in range(-60, 60):
-			ground.set_cell(Vector2i(x, y), 0, Vector2i(0, 7))
+			ground.set_cell(Vector2i(x, y), 1, Vector2i(0, 7))
 
 	# Spawn Cemetery Gravestones & Crypts
 	var r := RandomNumberGenerator.new()

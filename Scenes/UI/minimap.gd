@@ -109,23 +109,23 @@ func _scan_node_recursive(node: Node) -> void:
 				})
 	elif node is StaticBody2D:
 		var body = node as StaticBody2D
-		var size = Vector2(16, 16)
+		var body_size = Vector2(16, 16)
 		var shape_type = "circle"
 		var radius = 8.0
 		for child in body.get_children():
 			if child is CollisionShape2D and child.shape:
 				if child.shape is RectangleShape2D:
-					size = child.shape.size
+					body_size = child.shape.size
 					shape_type = "rect"
 				elif child.shape is CircleShape2D:
 					radius = child.shape.radius
 					shape_type = "circle"
-					size = Vector2(radius * 2, radius * 2)
+					body_size = Vector2(radius * 2, radius * 2)
 		obstacles.append({
 			"type": "static_body",
 			"pos": body.global_position,
 			"shape": shape_type,
-			"size": size,
+			"size": body_size,
 			"radius": radius,
 			"name": body.name
 		})
@@ -180,14 +180,14 @@ func _draw() -> void:
 		return
 		
 	var player_pos = player.global_position
-	var theme = _get_theme_colors()
+	var map_theme = _get_theme_colors()
 	
 	# 1. Draw Glassmorphic Dark Circle Background
 	var bg_color = Color(0.04, 0.04, 0.06, 0.78)
 	draw_circle(center, RADIUS_PX, bg_color)
 	
 	# 2. Draw Radar Scanner grid lines (concentric rings & crosshair)
-	var grid_color = Color(theme.border.r, theme.border.g, theme.border.b, 0.18)
+	var grid_color = Color(map_theme.border.r, map_theme.border.g, map_theme.border.b, 0.18)
 	draw_arc(center, RADIUS_PX * 0.33, 0.0, TAU, 16, grid_color, 1.0)
 	draw_arc(center, RADIUS_PX * 0.66, 0.0, TAU, 24, grid_color, 1.0)
 	draw_line(center - Vector2(RADIUS_PX, 0), center + Vector2(RADIUS_PX, 0), grid_color, 1.0)
@@ -214,7 +214,7 @@ func _draw() -> void:
 				if cell_center.distance_to(player_pos) <= WORLD_RADIUS:
 					var m_pos = world_to_minimap(cell_center, player_pos)
 					# Draw cell block
-					draw_rect(Rect2(m_pos - Vector2(cell_draw_size * 0.5, cell_draw_size * 0.5), Vector2(cell_draw_size * 1.05, cell_draw_size * 1.05)), theme.floor)
+					draw_rect(Rect2(m_pos - Vector2(cell_draw_size * 0.5, cell_draw_size * 0.5), Vector2(cell_draw_size * 1.05, cell_draw_size * 1.05)), map_theme.floor)
 
 	# 4. Draw Obstacles inside Visited Areas
 	for obs in obstacles:
@@ -227,33 +227,33 @@ func _draw() -> void:
 			
 			if obs.type == "tile":
 				var sz = obs.size * MINIMAP_SCALE
-				draw_rect(Rect2(m_pos - sz * 0.5, sz), theme.wall)
+				draw_rect(Rect2(m_pos - sz * 0.5, sz), map_theme.wall)
 			elif obs.type == "static_body":
 				if "Crypt" in obs.name:
 					var sz = obs.size * MINIMAP_SCALE
 					# Draw brick border
-					draw_rect(Rect2(m_pos - sz * 0.5, sz), theme.wall)
+					draw_rect(Rect2(m_pos - sz * 0.5, sz), map_theme.wall)
 					# Fill crypt interior slightly darker
 					draw_rect(Rect2(m_pos - sz * 0.4, sz * 0.8), Color(0.08, 0.08, 0.1, 0.9))
 				elif "Altar" in obs.name:
 					var sz = obs.size * MINIMAP_SCALE
 					# Glowing Altar Rect
-					draw_rect(Rect2(m_pos - sz * 0.5, sz), theme.wall)
+					draw_rect(Rect2(m_pos - sz * 0.5, sz), map_theme.wall)
 					# Draw altar core rune glow
 					draw_rect(Rect2(m_pos - sz * 0.25, sz * 0.5), Color(1, 1, 1, 0.95))
 				elif "Heart" in obs.name:
 					var rad = obs.radius * MINIMAP_SCALE
 					# Pulse the heart visually on minimap too!
 					var pulse = 1.0 + 0.12 * sin(Time.get_ticks_msec() * 0.004)
-					draw_circle(m_pos, rad * pulse, theme.wall)
+					draw_circle(m_pos, rad * pulse, map_theme.wall)
 					draw_circle(m_pos, rad * 0.5 * pulse, Color.WHITE)
 				else:
 					if obs.shape == "rect":
 						var sz = obs.size * MINIMAP_SCALE
-						draw_rect(Rect2(m_pos - sz * 0.5, sz), theme.wall)
+						draw_rect(Rect2(m_pos - sz * 0.5, sz), map_theme.wall)
 					else:
 						var rad = obs.radius * MINIMAP_SCALE
-						draw_circle(m_pos, rad, theme.wall)
+						draw_circle(m_pos, rad, map_theme.wall)
 
 	# 5. Draw Pickups (if in visited areas)
 	var pickups = get_tree().get_nodes_in_group("pickups")
@@ -308,11 +308,11 @@ func _draw() -> void:
 
 	# 7. Draw Radar Sweep Line
 	var sweep_end = center + Vector2(RADIUS_PX, 0).rotated(_sweep_angle)
-	draw_line(center, sweep_end, Color(theme.border.r, theme.border.g, theme.border.b, 0.25), 1.5)
+	draw_line(center, sweep_end, Color(map_theme.border.r, map_theme.border.g, map_theme.border.b, 0.25), 1.5)
 
 	# 8. Draw Player Arrow Pointer in the center
 	var p_rot = player.rotation
-	var p_color = theme.player
+	var p_color = map_theme.player
 	var p_size = 5.0
 	var player_poly = PackedVector2Array([
 		center + Vector2(p_size * 1.5, 0).rotated(p_rot),
@@ -325,8 +325,8 @@ func _draw() -> void:
 	draw_circle(center, 1.2, Color.WHITE)
 
 	# 9. Draw Neon Circular Border Frame with Glow
-	draw_arc(center, RADIUS_PX, 0.0, TAU, 32, theme.border, 1.5)
-	draw_arc(center, RADIUS_PX + 0.5, 0.0, TAU, 32, Color(theme.border.r, theme.border.g, theme.border.b, 0.3), 1.0)
+	draw_arc(center, RADIUS_PX, 0.0, TAU, 32, map_theme.border, 1.5)
+	draw_arc(center, RADIUS_PX + 0.5, 0.0, TAU, 32, Color(map_theme.border.r, map_theme.border.g, map_theme.border.b, 0.3), 1.0)
 	
 	# 10. Draw Mini Toggle Helper text at the bottom edge of the minimap
 	# Only show helper if we are expanded

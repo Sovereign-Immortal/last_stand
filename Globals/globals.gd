@@ -293,10 +293,44 @@ const LORE_FRAGMENTS: Array[Dictionary] = [
 			{"speaker": "Narrator", "text": "A girl's cry echoes in the dark corridor. You have no sister. Who was she?", "color": Color(0.3, 0.8, 1.0)},
 			{"speaker": "System", "text": "Memory block decrypted. A fragment of a real memory, corrupted during overwrite.", "color": Color(0.0, 0.8, 1.0)}
 		]
+	},
+	{
+		"id": 28,
+		"category": "heritage",
+		"title": "The Cosmic Catalyst",
+		"dialogue": [
+			{"speaker": "Ancient Whispers", "text": "\"The death of our physical forms is not defeat. It is the consolidation of the catalyst.\"", "color": Color(1.0, 0.6, 0.0)},
+			{"speaker": "Narrator", "text": "An ancient giant script describing a ritual where a world is consumed to build a crown of absolute dominion.", "color": Color(0.3, 0.8, 1.0)},
+			{"speaker": "System", "text": "A chilling realization: the war between humans and giants was not an accident.", "color": Color(0.9, 0.1, 0.1)}
+		]
+	},
+	{
+		"id": 29,
+		"category": "world",
+		"title": "Chessboard of the Gods",
+		"dialogue": [
+			{"speaker": "Anurag Shre", "text": "\"The Giant King thinks he is the player. He does not realize he is simply the most valuable piece on my side of the board.\"", "color": Color(0.2, 0.9, 0.3)},
+			{"speaker": "Anurag Shre", "text": "\"I will let him assemble the souls. I will let him dissolve the barrier. And then, I will take his seat.\"", "color": Color(0.2, 0.9, 0.3)},
+			{"speaker": "Narrator", "text": "A handwritten diary detailing calculations of cosmic ascension. Two mastermind wills contesting the same empty throne.", "color": Color(0.3, 0.8, 1.0)}
+		]
+	},
+	{
+		"id": 30,
+		"category": "implanted",
+		"title": "The True Vessel",
+		"dialogue": [
+			{"speaker": "Echo of the Crown", "text": "\"You are the cup. We are the wine. When the cup is filled, the drinker will awaken.\"", "color": Color(1.0, 0.6, 0.0)},
+			{"speaker": "Narrator", "text": "A vision of the player Kaelan wearing a crown of burning stars, surrounded by a universe dissolved into grey mist.", "color": Color(0.3, 0.8, 1.0)},
+			{"speaker": "Warning", "text": "The memories inside you... they are not fake. They are the anchor keeping the god asleep.", "color": Color(0.7, 0.3, 0.3)}
+		]
 	}
 ]
 
 #
+
+# Developer Boss Testing
+var dev_boss_testing: bool = false
+var dev_boss_type: String = "spine"
 
 # Leveling System
 var player_level: int = 1
@@ -474,7 +508,11 @@ func load_save() -> void:
 			persisted_carried_weapons.assign(s.persisted_carried_weapons)
 			persisted_ammo_remaining.assign(s.persisted_ammo_remaining)
 			persisted_bullet_ammo.assign(s.persisted_bullet_ammo)
+			while persisted_bullet_ammo.size() < 5:
+				persisted_bullet_ammo.append(0)
 			persisted_explosives_ammo.assign(s.persisted_explosives_ammo)
+			while persisted_explosives_ammo.size() < 5:
+				persisted_explosives_ammo.append(0)
 			persisted_current_weapon_index = s.persisted_current_weapon_index
 			persisted_current_bullet_type = s.persisted_current_bullet_type
 			persisted_current_explosive_index = s.persisted_current_explosive_index

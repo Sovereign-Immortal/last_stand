@@ -12,7 +12,7 @@ func _ready() -> void:
 	# Brick/Concrete floor from atlas source 0, coordinate (1, 10)
 	for x in range(-60, 60):
 		for y in range(-60, 60):
-			ground.set_cell(Vector2i(x, y), 0, Vector2i(1, 10))
+			ground.set_cell(Vector2i(x, y), 1, Vector2i(1, 10))
 
 	# Spawn Subway Tunnels/Walls forming narrow corridors
 	# Horizontal tunnel wall top

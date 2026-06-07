@@ -19,6 +19,7 @@ func _ready() -> void:
 	test_rare_drops_and_new_items()
 	test_hostile_hunter_group()
 	test_mini_boss_abilities()
+	test_true_boss_abilities()
 	
 	print("--- All Minimap, NPC, Lore & Mercenary Menu Tests Passed Successfully! ---")
 	get_tree().quit(0)
@@ -441,6 +442,8 @@ func test_persistence() -> void:
 func test_rare_drops_and_new_items() -> void:
 	var old_sp = Globals.skill_points
 	Globals.skill_points = 0
+	var old_killed = Globals.player_was_killed
+	Globals.player_was_killed = true
 	
 	var player = load("res://Scenes/Humans/player.tscn").instantiate()
 	Engine.get_main_loop().root.add_child(player)
@@ -471,6 +474,7 @@ func test_rare_drops_and_new_items() -> void:
 	
 	player.queue_free()
 	Globals.skill_points = old_sp
+	Globals.player_was_killed = old_killed
 	
 	print("[PASS] Rare Drops and New Items Test")
 
@@ -518,5 +522,50 @@ func test_mini_boss_abilities() -> void:
 	
 	boss.queue_free()
 	dummy.queue_free()
+	
+	# Test all mini-boss types setup and draw calls to verify no crash/runtime issues
+	var types = ["spine", "skull", "heart", "true_cyborg", "prototype", "zombiefied_giant", "fake_true_giant"]
+	for t in types:
+		var b = base_scene.instantiate()
+		b.set_script(load("res://Scenes/Zombies/mini_boss.gd"))
+		b.setup_boss(t)
+		Engine.get_main_loop().root.add_child(b)
+		b.global_position = Vector2.ZERO
+		b._process(0.016)
+		b.queue_redraw()
+		b.queue_free()
+		
 	print("[PASS] Mini Boss Abilities Test")
+
+func test_true_boss_abilities() -> void:
+	var base_scene = load("res://Scenes/Zombies/zombie_base.tscn")
+	assert(base_scene != null, "zombie_base.tscn should exist")
+	
+	var boss = base_scene.instantiate()
+	boss.set_script(load("res://Scenes/Zombies/true_boss.gd"))
+	Engine.get_main_loop().root.add_child(boss)
+	boss.global_position = Vector2.ZERO
+	
+	var dummy = Node2D.new()
+	Engine.get_main_loop().root.add_child(dummy)
+	dummy.global_position = Vector2(100, 0)
+	boss.player_target = dummy
+	
+	for p in range(6):
+		boss._enter_phase(p)
+		boss._trigger_phase_ability(100.0)
+		match p:
+			0: boss._ability_boss_lunge()
+			1: boss._ability_boss_teleport()
+			2: boss._ability_boss_summon()
+			3: boss._ability_boss_disarm()
+			4: boss._ability_boss_shield()
+			5: boss._ability_boss_repulsion()
+			
+	boss._shield_active = true
+	boss.take_damage(10.0)
+	
+	boss.queue_free()
+	dummy.queue_free()
+	print("[PASS] True Boss Abilities Test")
 

@@ -12,6 +12,7 @@ var _vein_lines: Array = []
 var _lava_pools: Array = []
 var _mini_boss_defeated: bool = false
 var _hud_visible: bool = true
+var _wall_blocks: Array = []  # outer ring wall segments
 
 # Pillar veins / atmosphere
 var _atmo_timer: float = 0.0
@@ -30,6 +31,7 @@ func _ready() -> void:
 	_spawn_altar("Absorb", Vector2(160, -180), Color(0.8, 0.1, 0.8), 2)
 	_spawn_altar("Seal", Vector2(-160, 100), Color(0.5, 0.5, 0.5), 3)
 	_spawn_altar("Veil", Vector2(160, 100), Color(0.1, 0.8, 0.9), 4)
+	_spawn_altar("Cosmos", Vector2(0, 200), Color(1.0, 0.6, 0.0), 5)
 
 	# Lock altars until heart mini-boss is beaten
 	_set_altars_active(false)
@@ -127,7 +129,7 @@ func _build_floor() -> void:
 	ground.modulate = Color(0.28, 0.10, 0.13)
 	for x in range(-40, 40):
 		for y in range(-40, 40):
-			ground.set_cell(Vector2i(x, y), 0, Vector2i(1, 10))
+			ground.set_cell(Vector2i(x, y), 1, Vector2i(1, 10))
 
 # ---------------------------------------------------------------------------
 # Lava pools (visual only Polygon2D blobs)
@@ -363,6 +365,8 @@ func _spawn_altar(action_type: String, pos: Vector2, neon_color: Color, index: i
 			prompt.text = "[E] Altar of the Veil (Secret)"
 		else:
 			prompt.text = "[E] Altar of the Veil (Locked)"
+	elif action_type == "Cosmos":
+		prompt.text = "[E] Altar of the Cosmos (Secret)"
 	else:
 		prompt.text = "[E] Altar of %s" % action_type.to_upper()
 	prompt.add_theme_color_override("font_color", Color(0.3, 0.3, 0.3))
@@ -510,35 +514,80 @@ func _trigger_ending_slides(ending_index: int) -> void:
 			ending_text = [
 				{"speaker": "Ending — Destroy", "text": "You shatter the Giant's Heart. A shockwave tears through the cavern, turning the Revenants outside to ash.", "color": Color(0.85, 0.1, 0.1)},
 				{"speaker": "Ending — Destroy", "text": "The plague ends, but the ancient power is gone forever.", "color": Color(0.85, 0.1, 0.1)},
-				{"speaker": "Ending — Destroy", "text": "You return to the surface as Kaelan — a human with no family, no past, and memories that will never fully heal.", "color": Color(0.85, 0.1, 0.1)}
+				{"speaker": "Ending — Destroy", "text": "You return to the surface as Kaelan — a human with no family, no past, and memories that will never fully heal.", "color": Color(0.85, 0.1, 0.1)},
+				{"speaker": "Ending — Destroy", "text": "Yet, in the silence of your mind, a faint whisper lingers: \"The vessel remains intact...\"", "color": Color(1.0, 0.6, 0.0)}
 			]
 		2:
 			ending_name = "Absorb"
 			ending_text = [
 				{"speaker": "Ending — Absorb", "text": "You place your hands on the pulsing heart and draw its energy into yourself.", "color": Color(0.8, 0.1, 0.8)},
 				{"speaker": "Ending — Absorb", "text": "Your skin thickens, your bones stretch. The flesh of the giant prince reclaimed.", "color": Color(0.8, 0.1, 0.8)},
-				{"speaker": "Ending — Absorb", "text": "The Revenants bow to their new king. But you rule a dead empire. There is no one left to save.", "color": Color(0.8, 0.1, 0.8)}
+				{"speaker": "Ending — Absorb", "text": "The Revenants bow to their new king. But you rule a dead empire. There is no one left to save.", "color": Color(0.8, 0.1, 0.8)},
+				{"speaker": "Ending — Absorb", "text": "A sudden vertigo hits you. You feel not like a king, but a pawn that has reached the end of the board.", "color": Color(0.2, 0.9, 0.3)}
 			]
 		3:
 			ending_name = "Seal"
 			ending_text = [
 				{"speaker": "Ending — Seal", "text": "You turn your back on the heart, building a massive stone barrier to seal the cavern forever.", "color": Color(0.6, 0.6, 0.6)},
 				{"speaker": "Ending — Seal", "text": "The world above continues its slow, desperate struggle.", "color": Color(0.6, 0.6, 0.6)},
-				{"speaker": "Ending — Seal", "text": "You watch from the shadows, a silent guardian who refuses to choose.", "color": Color(0.6, 0.6, 0.6)}
+				{"speaker": "Ending — Seal", "text": "You watch from the shadows, a silent guardian who refuses to choose.", "color": Color(0.6, 0.6, 0.6)},
+				{"speaker": "Ending — Seal", "text": "Behind the stone door, you hear the universe itself scratching, demanding to be let in.", "color": Color(1.0, 0.6, 0.0)}
 			]
 		4:
 			ending_name = "Veil's End"
 			ending_text = [
 				{"speaker": "Ending — Veil's End", "text": "With all archives of truth gathered, you merge your human memories and giant essence into the heart.", "color": Color(0.1, 0.8, 0.9)},
 				{"speaker": "Ending — Veil's End", "text": "A brilliant white light erupts, washing over the ruins, the cemetery, and the tunnels.", "color": Color(0.1, 0.8, 0.9)},
-				{"speaker": "Ending — Veil's End", "text": "The plague is completely purified. The earth heals. You awaken in the sunlight — completely human, free of the curse, ready to start anew.", "color": Color(0.1, 0.8, 0.9)}
+				{"speaker": "Ending — Veil's End", "text": "The plague is completely purified. The earth heals. You awaken in the sunlight — completely human, free of the curse, ready to start anew.", "color": Color(0.1, 0.8, 0.9)},
+				{"speaker": "Ending — Veil's End", "text": "Yet, as you close your eyes, you hear a faint echo: \"A grand chess game, indeed...\"", "color": Color(0.2, 0.9, 0.3)}
 			]
+		5:
+			ending_name = "Truest True Ending"
+			ending_text = [
+				{"speaker": "Truest True Ending", "text": "You touch the heart, but instead of merging or sealing, you invoke the ancient Giant King's script.", "color": Color(1.0, 0.6, 0.0)},
+				{"speaker": "Truest True Ending", "text": "A blinding flash consumes your vision. The memories of Kaelan begin to unravel. The school, the family, the warm home—they melt away like ink in water.", "color": Color(1.0, 0.6, 0.0)},
+				{"speaker": "Truest True Ending", "text": "The truth is laid bare: the war, the plague, the decades of bloodshed were completely orchestrated by the Giant King.", "color": Color(1.0, 0.6, 0.0)},
+				{"speaker": "Truest True Ending", "text": "He manipulated the humans, forcing them to fight one another, and ultimately provoked them to exterminate the giants.", "color": Color(1.0, 0.6, 0.0)},
+				{"speaker": "Truest True Ending", "text": "All of this was a sacrifice. Every soul lost was bound to the Heart, meant to act as a cosmic catalyst to consume the universe itself.", "color": Color(1.0, 0.6, 0.0)},
+				{"speaker": "Truest True Ending", "text": "You, the vessel, were designed to receive this power. To become a god of a new world—omnipotent, omnipresent, a absolute hivemind of all matter.", "color": Color(1.0, 0.6, 0.0)},
+				{"speaker": "Truest True Ending", "text": "But the chess board had another player. Anurag Shre, the mad scientist, foresaw this cosmic rite.", "color": Color(0.2, 0.9, 0.3)},
+				{"speaker": "Truest True Ending", "text": "He engineered the cure and the high-frequency inhibitors, not to save humanity, but to hijack the catalyst at the final second.", "color": Color(0.2, 0.9, 0.3)},
+				{"speaker": "Truest True Ending", "text": "As the universe dissolves into the crucible, the Giant King and Anurag Shre lock minds in a perpetual checkmate.", "color": Color(1.0, 0.85, 0.1)},
+				{"speaker": "Truest True Ending", "text": "The screen turns completely white. No surface, no dead, no living. Only the eternal board.", "color": Color(1.0, 0.85, 0.1)}
+			]
+
+	var on_line_displayed: Callable
+	if ending_index == 5:
+		on_line_displayed = func(idx: int, line_data: Dictionary):
+			if idx == 1:
+				var canvas_layer = CanvasLayer.new()
+				canvas_layer.layer = 110
+				canvas_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+				add_child(canvas_layer)
+				
+				var melt_rect = ColorRect.new()
+				melt_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				melt_rect.process_mode = Node.PROCESS_MODE_ALWAYS
+				canvas_layer.add_child(melt_rect)
+				
+				var shader_mat = ShaderMaterial.new()
+				shader_mat.shader = load("res://Shaders/screen_melt.gdshader")
+				shader_mat.set_shader_parameter("progress", 0.0)
+				melt_rect.material = shader_mat
+				
+				var tween = create_tween()
+				tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+				tween.tween_property(shader_mat, "shader_parameter/progress", 1.0, 4.0).set_ease(Tween.EASE_OUT)
+				
+		DialogManager.line_displayed.connect(on_line_displayed)
 
 	DialogManager.show_dialog(ending_text)
 
 	get_tree().create_timer(0.2).timeout.connect(func():
 		while DialogManager.is_active():
 			await get_tree().create_timer(0.1).timeout
+		if ending_index == 5 and DialogManager.line_displayed.is_connected(on_line_displayed):
+			DialogManager.line_displayed.disconnect(on_line_displayed)
 		if not Globals.unlocked_endings.has(ending_name):
 			Globals.unlocked_endings.append(ending_name)
 		Globals.current_wave = 1
@@ -583,3 +632,28 @@ func _spawn_cavern_walls() -> void:
 		sb.add_child(vein)
 
 		add_child(sb)
+		# Start hidden/disabled so bosses can roam the full arena freely.
+		# They will be restored when the true boss (Anurag Shre) is defeated.
+		sb.visible = false
+		sb.get_node("CollisionShape2D").disabled = true
+		_wall_blocks.append(sb)
+
+# ---------------------------------------------------------------------------
+# Called by true_boss.gd after Anurag Shre dies
+# ---------------------------------------------------------------------------
+func on_true_boss_defeated() -> void:
+	# Restore cavern walls so the arena is sealed again
+	for wb in _wall_blocks:
+		if is_instance_valid(wb):
+			wb.visible = true
+			var cs = wb.get_node_or_null("CollisionShape2D")
+			if cs:
+				cs.disabled = false
+	
+	# Speed up all remaining mini-bosses (enraged by Anurag's death)
+	var enrage_multiplier := 1.65
+	for boss in get_tree().get_nodes_in_group("mini_bosses"):
+		if is_instance_valid(boss) and not boss.get("is_dead"):
+			boss.move_speed = boss.move_speed * enrage_multiplier
+			boss.damage = int(boss.damage * 1.3)
+			boss.modulate = boss.modulate.lightened(0.25)

@@ -1287,8 +1287,8 @@ func _get_safe_spawn_position() -> Vector2:
 		var dir = (closest_sp.global_position - _player.global_position).normalized()
 		# Spawn at a moderate distance (e.g. 100-150 pixels) towards the spawn
 		var dist = clamp(120.0, 50.0, min_dist * 0.6)
-		var offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
-		return _player.global_position + dir * dist + offset
+		var rand_offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
+		return _player.global_position + dir * dist + rand_offset
 		
 	# Fallback: spawn in direction of player's mouse/looking direction
 	var look_dir = (_player.get_global_mouse_position() - _player.global_position).normalized()
@@ -1595,10 +1595,10 @@ func _update_merc_menu() -> void:
 		_merc_details_weapon.text = "EQUIPPED WEAPON: %s" % w_name.to_upper()
 		_merc_details_bullets.text = "AMMO: %d/%d (%s BULLETS)" % [npc.get("ammo_count"), npc.get("max_ammo"), b_name.to_upper()]
 		
-		# Enable/Disable weapon buttons based on player carrying weapon and having ammo
+		# Enable/Disable weapon buttons based on player carrying weapon
 		_merc_w1_btn.disabled = false # Pistol always available
-		_merc_w2_btn.disabled = not (1 in _player.carried_weapons) or _player.ammo_remaining[1] <= 0
-		_merc_w3_btn.disabled = not (2 in _player.carried_weapons) or _player.ammo_remaining[2] <= 0
+		_merc_w2_btn.disabled = not (1 in _player.carried_weapons)
+		_merc_w3_btn.disabled = not (2 in _player.carried_weapons)
 		
 		# Enable/Disable bullet buttons based on player inventory
 		_merc_b0_btn.disabled = _player.bullet_ammo[0] <= 0
@@ -1637,9 +1637,7 @@ func _on_give_weapon_pressed(weapon_idx: int) -> void:
 	elif weapon_idx == 2:
 		player_ammo = _player.ammo_remaining[2]
 		
-	var transfer = min(50, player_ammo)
-	if transfer <= 0 and weapon_idx > 0:
-		return
+	var transfer = max(0, min(50, player_ammo))
 		
 	# Deduct from player
 	if weapon_idx == 0:
@@ -1648,6 +1646,13 @@ func _on_give_weapon_pressed(weapon_idx: int) -> void:
 		_player.ammo_remaining[1] -= transfer
 	elif weapon_idx == 2:
 		_player.ammo_remaining[2] -= transfer
+		
+	# If weapon is not Pistol, remove it from player carried_weapons and select Pistol (slot 0) if currently equipped
+	if weapon_idx > 0:
+		if weapon_idx in _player.carried_weapons:
+			_player.carried_weapons.erase(weapon_idx)
+		if _player.current_weapon_index == weapon_idx:
+			_player._select_weapon_slot(0)
 		
 	# Equip on NPC
 	npc.set("has_gun", true)

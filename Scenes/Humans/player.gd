@@ -131,6 +131,7 @@ var bullet_scene: PackedScene = preload("res://Scenes/Projectiles/bullet.tscn")
 signal died
 signal health_changed(new_health: int, max_h: int)
 signal weapon_changed(weapon_name: String, ammo: int)
+@warning_ignore("unused_signal")
 signal ammo_changed(ammo: int)
 signal bullet_changed(bullet_name: String, ammo: int)
 signal explosive_changed(exp_name: String, ammo: int)
@@ -139,6 +140,11 @@ signal weapon_fired
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_UNPAUSED:
+		# Add a micro cooldown (0.05s) to prevent firing immediately on unpausing from menus
+		fire_cooldown = max(fire_cooldown, 0.05)
+
 func _ready() -> void:
 	add_to_group("player")
 	add_to_group("targets")
@@ -148,7 +154,11 @@ func _ready() -> void:
 		carried_weapons.assign(Globals.persisted_carried_weapons)
 		ammo_remaining.assign(Globals.persisted_ammo_remaining)
 		bullet_ammo.assign(Globals.persisted_bullet_ammo)
+		while bullet_ammo.size() < 5:
+			bullet_ammo.append(0)
 		explosives_ammo.assign(Globals.persisted_explosives_ammo)
+		while explosives_ammo.size() < 5:
+			explosives_ammo.append(0)
 		current_weapon_index = Globals.persisted_current_weapon_index
 		current_bullet_type = Globals.persisted_current_bullet_type
 		current_explosive_index = Globals.persisted_current_explosive_index
@@ -159,7 +169,15 @@ func _ready() -> void:
 				active_slot = i
 				break
 
-	health = max_health
+	if Globals.dev_boss_testing:
+		health = 99999
+		max_health = 99999
+		carried_weapons = [0, 1, 2]
+		ammo_remaining = [-1, 9999, 9999]
+		bullet_ammo = [9999, 9999, 9999, 9999, 9999]
+		explosives_ammo = [999, 999, 999, 999, 999]
+	else:
+		health = max_health
 	# Bullet container at root level (keeps bullets from moving with camera)
 	var root := get_tree().root.get_child(0)
 	if root.has_node("Bullets"):
@@ -183,8 +201,7 @@ func _ready() -> void:
 	# Emit initial signals to update HUD elements
 	var weapon = WEAPONS[current_weapon_index]
 	emit_signal("weapon_changed", weapon["name"], ammo_remaining[current_weapon_index])
-	var exp_names = ["Grenade", "Landmine", "Ice Bomb"]
-	emit_signal("explosive_changed", exp_names[current_explosive_index], explosives_ammo[current_explosive_index])
+	_notify_explosive_changed()
 
 	# Start of level introductory monologue reflecting the wake-up nightmare
 	get_tree().create_timer(0.3).timeout.connect(func():
@@ -340,7 +357,8 @@ func _fire(weapon: Dictionary) -> void:
 			AudioManager.play_empty()
 			return
 	
-	bullet_ammo[current_bullet_type] -= 1
+	if not Globals.dev_boss_testing:
+		bullet_ammo[current_bullet_type] -= 1
 	_notify_bullet_changed()
 
 	fire_cooldown = weapon["fire_rate"]
@@ -511,6 +529,8 @@ func add_bullet_ammo(b_type: int, amount: int) -> void:
 func take_damage(amount: int) -> void:
 	if is_dead:
 		return
+	if Globals.dev_boss_testing:
+		return
 	health = max(0, health - amount)
 	emit_signal("health_changed", health, max_health)
 	AudioManager.play_player_hurt()
@@ -670,7 +690,8 @@ func _throw_explosive() -> void:
 		
 	# Handle Skill Point Orb (index 3)
 	if current_explosive_index == 3:
-		explosives_ammo[3] -= 1
+		if not Globals.dev_boss_testing:
+			explosives_ammo[3] -= 1
 		explosive_cooldown = 0.5
 		Globals.skill_points += 1
 		AudioManager.play_empty()
@@ -681,18 +702,20 @@ func _throw_explosive() -> void:
 	if current_explosive_index == 4:
 		if is_giant:
 			return # Stacking giantification is blocked
-		explosives_ammo[4] -= 1
+		if not Globals.dev_boss_testing:
+			explosives_ammo[4] -= 1
 		explosive_cooldown = 1.0
 		_notify_explosive_changed()
 		trigger_giantification_item()
 		return
 		
 	# Handle throwables (0, 1, 2)
-	explosives_ammo[current_explosive_index] -= 1
+	if not Globals.dev_boss_testing:
+		explosives_ammo[current_explosive_index] -= 1
 	explosive_cooldown = 1.0 # 1 second cooldown between throws
 	
 	var exp_script = load("res://Scenes/Projectiles/explosive.gd")
-	var exp = exp_script.new()
+	var expl_instance = exp_script.new()
 	var type_name = "grenade"
 	if current_explosive_index == 1:
 		type_name = "landmine"
@@ -702,11 +725,11 @@ func _throw_explosive() -> void:
 	var throw_dir = (get_global_mouse_position() - global_position).normalized()
 	var throw_speed = 600.0 if current_explosive_index != 1 else 0.0 # landmine doesn't move
 	
-	exp.setup(type_name, throw_dir, throw_speed)
-	exp.global_position = global_position
-	exp._player_ref = self
+	expl_instance.setup(type_name, throw_dir, throw_speed)
+	expl_instance.global_position = global_position
+	expl_instance._player_ref = self
 	
-	get_tree().root.add_child(exp)
+	get_tree().root.add_child(expl_instance)
 	_notify_explosive_changed()
 
 func add_item_ammo(item_index: int, amount: int) -> void:

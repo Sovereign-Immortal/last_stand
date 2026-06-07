@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+signal line_displayed(index: int, line_data: Dictionary)
+
 # Lightweight Dialog Manager
 # Call DialogManager.show_dialog(lines) to display dialog and pause the game.
 #
@@ -11,7 +13,8 @@ var _dialog_lines: Array = []
 var _current_line_idx: int = -1
 var _is_typing: bool = false
 var _last_visible_chars: int = 0
-var _visible_char_ratio: float = 0.0
+var _is_paused_dialog: bool = true
+var _auto_advance_timer: Timer = null
 
 # UI Controls
 var _panel: PanelContainer
@@ -99,20 +102,64 @@ func _create_ui() -> void:
 	UIStyler.style_scene(_panel)
 	add_child(_panel)
 
-func show_dialog(lines: Array) -> void:
+func show_dialog(lines: Array, pause_game: bool = true) -> void:
 	if lines.is_empty():
 		return
 		
-	# Pause the entire game
-	get_tree().paused = true
+	_is_paused_dialog = pause_game
+	if _is_paused_dialog:
+		# Pause the entire game
+		get_tree().paused = true
 	
 	_dialog_lines = lines
 	_current_line_idx = 0
 	_panel.visible = true
 	_display_current_line()
+	
+	if not _is_paused_dialog:
+		_setup_auto_advance()
+
+func _setup_auto_advance() -> void:
+	if _auto_advance_timer == null:
+		_auto_advance_timer = Timer.new()
+		_auto_advance_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(_auto_advance_timer)
+		_auto_advance_timer.timeout.connect(_on_auto_advance_timeout)
+	
+	_start_auto_advance_timer()
+
+func _start_auto_advance_timer() -> void:
+	if _dialog_lines.is_empty() or _current_line_idx >= _dialog_lines.size():
+		return
+	var text = ""
+	var line = _dialog_lines[_current_line_idx]
+	if line is Dictionary:
+		text = line.get("text", "")
+	elif line is String:
+		text = line
+	
+	var duration = clampf(text.length() * 0.03, 0.3, 2.0) + 1.8
+	_auto_advance_timer.start(duration)
+
+func _on_auto_advance_timeout() -> void:
+	if not _panel.visible or _is_paused_dialog:
+		return
+	if _is_typing:
+		_finish_typing()
+		_auto_advance_timer.start(1.5)
+	else:
+		_current_line_idx += 1
+		if _current_line_idx < _dialog_lines.size():
+			_display_current_line()
+			_start_auto_advance_timer()
+		else:
+			_close_dialog()
 
 func _input(event: InputEvent) -> void:
 	if not _panel.visible:
+		return
+		
+	if not _is_paused_dialog:
 		return
 		
 	if event.is_action_pressed("shoot") or event.is_action_pressed("ui_accept"):
@@ -166,6 +213,8 @@ func _display_current_line() -> void:
 	var duration = clampf(text.length() * 0.03, 0.3, 2.0)
 	_type_tween.tween_property(_text_label, "visible_ratio", 1.0, duration).from(0.0)
 	_type_tween.tween_callback(func(): _is_typing = false)
+	var line_dict = line if line is Dictionary else {"speaker": speaker, "text": text, "color": speaker_color}
+	line_displayed.emit(_current_line_idx, line_dict)
 
 func _finish_typing() -> void:
 	if _type_tween and _type_tween.is_valid():
@@ -177,9 +226,12 @@ func _close_dialog() -> void:
 	_panel.visible = false
 	if _type_tween and _type_tween.is_valid():
 		_type_tween.kill()
+	if _auto_advance_timer:
+		_auto_advance_timer.stop()
 		
 	# Unpause the game
-	get_tree().paused = false
+	if _is_paused_dialog:
+		get_tree().paused = false
 
 func _process(_delta: float) -> void:
 	if _panel.visible and _is_typing:

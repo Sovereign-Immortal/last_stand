@@ -14,7 +14,7 @@ config/name="Last Stand"
 run/main_scene="res://Scenes/UI/splash_screen.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 boot_splash/image="res://Last Stand Assets/UI/mad_scientist_splash.png"
-config/icon="res://icon.svg"
+config/icon="res://Last Stand Assets/UI/logo.png"
 
 [autoload]
 

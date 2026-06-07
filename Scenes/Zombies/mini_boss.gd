@@ -2,6 +2,7 @@ extends "res://Scenes/Zombies/zombie_base.gd"
 
 var boss_name: String = ""
 var abilities: Array[String] = []
+var boss_type: String = ""
 
 var original_modulate: Color = Color.WHITE
 var ability_timer: float = 0.0
@@ -34,6 +35,7 @@ func _ready() -> void:
 	leader = self
 
 func setup_boss(type: String) -> void:
+	boss_type = type
 	zombie_type = "mini_boss"
 	add_to_group("mini_bosses")
 	
@@ -97,6 +99,7 @@ func setup_boss(type: String) -> void:
 
 	health = max_health
 	modulate = original_modulate
+	strength = 12.0
 	
 	# Load specific texture based on the mini boss type
 	var tex_path := ""
@@ -109,10 +112,10 @@ func setup_boss(type: String) -> void:
 		"zombiefied_giant": tex_path = "res://Last Stand Assets/Characters/PNG/Zombie 1/zoimbie1_hold.png"
 		"fake_true_giant": tex_path = "res://Last Stand Assets/Characters/PNG/Soldier 1/soldier1_machine.png"
 	
-	if tex_path != "" and has_node("image"):
+	if has_node("image"):
 		var sprite = get_node("image") as Sprite2D
 		if sprite:
-			sprite.texture = load(tex_path)
+			sprite.visible = false
 			
 	# Add unique visual effects
 	_add_boss_effects(type)
@@ -206,29 +209,54 @@ func _die() -> void:
 		}
 	])
 	
-	# Drop rare items
+	# Dynamic drop scaling based on wave number and boss strength
+	var wave_factor = 1.0 + (Globals.current_wave - 1) * 0.03
+	var strength_factor = strength / 2.0
+	var amount_mult = strength_factor * wave_factor
+
+	# Drop rare items: scale number of items and use weighted index
 	var item_pickup_scene = load("res://Scenes/Pickups/item_pickup.tscn")
 	if item_pickup_scene:
-		for i in range(2):
+		var num_items = clampi(2 + int(Globals.current_wave / 5.0) + int(strength / 4.0), 2, 5)
+		for i in range(num_items):
 			var item = item_pickup_scene.instantiate()
-			item.item_type_index = randi_range(0, 4)
+			
+			# Weighted item index
+			var w0 = maxf(10.0, 30.0 - Globals.current_wave * 0.5 - strength * 1.5)
+			var w1 = maxf(15.0, 25.0 - Globals.current_wave * 0.2)
+			var w2 = 25.0
+			var w3 = 15.0 + Globals.current_wave * 0.8 + strength * 2.0
+			var w4 = 5.0 + Globals.current_wave * 0.4 + strength * 1.5
+			var total_w = w0 + w1 + w2 + w3 + w4
+			var roll = randf() * total_w
+			var type_idx = 0
+			if roll < w0: type_idx = 0
+			elif roll < w0 + w1: type_idx = 1
+			elif roll < w0 + w1 + w2: type_idx = 2
+			elif roll < w0 + w1 + w2 + w3: type_idx = 3
+			else: type_idx = 4
+			
+			item.item_type_index = type_idx
 			item.global_position = global_position + Vector2(randf_range(-40, 40), randf_range(-40, 40))
 			get_parent().add_child.call_deferred(item)
 			
-	# Drop bullet pickups
+	# Drop bullet pickups: scale count and amount
 	if _bullet_pickup_scene:
-		for i in range(3):
+		var num_bullets = clampi(3 + int(Globals.current_wave / 4.0) + int(strength / 3.0), 3, 8)
+		for i in range(num_bullets):
 			var b = _bullet_pickup_scene.instantiate()
 			b.bullet_type_index = randi_range(0, 4)
-			b.amount = randi_range(20, 50)
+			b.amount = clampi(int(randi_range(20, 50) * (1.0 + Globals.current_wave * 0.04 + strength * 0.05)), 10, 150)
 			b.global_position = global_position + Vector2(randf_range(-45, 45), randf_range(-45, 45))
 			get_parent().add_child.call_deferred(b)
 			
-	# Drop health
+	# Drop health: scale count
 	if _health_pickup_scene:
-		var hp = _health_pickup_scene.instantiate()
-		hp.global_position = global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20))
-		get_parent().add_child.call_deferred(hp)
+		var num_hp = clampi(1 + int(Globals.current_wave / 6.0), 1, 3)
+		for i in range(num_hp):
+			var hp = _health_pickup_scene.instantiate()
+			hp.global_position = global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20))
+			get_parent().add_child.call_deferred(hp)
 
 	# Track unique boss kills per zone
 	if Globals.selected_map == "res://Scenes/Locations/map_1.tscn":
@@ -246,9 +274,11 @@ func _process(delta: float) -> void:
 	if is_dead:
 		return
 		
+	_heart_beat_timer += delta
+	queue_redraw()
+		
 	# Heart boss heartbeat scaling pulse
 	if boss_name.contains("Heart"):
-		_heart_beat_timer += delta
 		var pulse: float = 1.0 + abs(sin(_heart_beat_timer * 5.0)) * 0.12
 		scale = Vector2(2.0, 2.0) * pulse
 		
@@ -419,17 +449,17 @@ func _spawn_sword_projectile(dir: Vector2) -> void:
 	tw.tween_callback(sword.queue_free)
 	
 	var hit_check_timer = get_tree().create_timer(1.0)
-	var active = true
-	hit_check_timer.timeout.connect(func(): active = false)
+	var check_state = { "active": true }
+	hit_check_timer.timeout.connect(func(): check_state.active = false)
 	
 	var check_loop = func():
-		while active and is_instance_valid(sword):
+		while check_state.active and is_instance_valid(sword):
 			var targets = get_tree().get_nodes_in_group("targets")
 			for t in targets:
 				if is_instance_valid(t) and t.has_method("take_damage"):
 					if sword.global_position.distance_to(t.global_position) < 30.0:
 						t.take_damage(15.0)
-						active = false
+						check_state.active = false
 						sword.queue_free()
 						break
 			await get_tree().process_frame
@@ -545,6 +575,23 @@ func _trigger_force_swap() -> void:
 	)
 
 func _draw() -> void:
+	# Custom procedural boss graphics
+	match boss_type:
+		"spine":
+			_draw_spine()
+		"skull":
+			_draw_skull()
+		"heart":
+			_draw_heart()
+		"true_cyborg":
+			_draw_cyborg()
+		"prototype":
+			_draw_prototype()
+		"zombiefied_giant":
+			_draw_zombiefied_giant()
+		"fake_true_giant":
+			_draw_fake_true_giant()
+
 	if draw_smash_circle:
 		draw_circle(Vector2.ZERO, smash_circle_radius, Color(0.9, 0.2, 0.2, 0.3))
 		draw_arc(Vector2.ZERO, smash_circle_radius, 0.0, TAU, 32, Color(0.9, 0.1, 0.1, 0.8), 2.0)
@@ -563,6 +610,139 @@ func _draw() -> void:
 		var local_laser_target = to_local(laser_hit_pos)
 		draw_line(Vector2(0, -10), local_laser_target, Color(1.0, 0.0, 0.0, 0.9), 3.0)
 		draw_circle(local_laser_target, 4.0, Color(1.0, 0.4, 0.4))
+
+func _draw_spine() -> void:
+	var vertebrae_count := 6
+	for i in range(vertebrae_count):
+		var x = -20.0 + i * 8.0
+		var wiggle = sin(_heart_beat_timer * 10.0 - i * 1.2) * 5.0
+		var pos = Vector2(x, wiggle)
+		if i >= 1 and i <= 4:
+			draw_arc(pos + Vector2(-2, -5), 8.0, PI, PI * 1.5, 8, Color(0.6, 0.85, 1.0, 0.65), 1.5)
+			draw_arc(pos + Vector2(-2, 5), 8.0, PI * 0.5, PI, 8, Color(0.6, 0.85, 1.0, 0.65), 1.5)
+		draw_circle(pos, 4.5, Color(0.9, 0.9, 0.85))
+		draw_line(pos, pos + Vector2(0, -7), Color(0.85, 0.85, 0.8), 2.0)
+		draw_line(pos, pos + Vector2(0, 7), Color(0.85, 0.85, 0.8), 2.0)
+		draw_line(pos, pos + Vector2(-5, 0), Color(0.8, 0.8, 0.75), 1.8)
+	var head_x = -20.0 + vertebrae_count * 8.0
+	var head_wiggle = sin(_heart_beat_timer * 10.0 - vertebrae_count * 1.2) * 5.0
+	var head_pos = Vector2(head_x, head_wiggle)
+	draw_circle(head_pos, 6.5, Color(0.92, 0.92, 0.88))
+	draw_circle(head_pos + Vector2(3, -2.2), 1.8, Color(0.1, 0.1, 0.15))
+	draw_circle(head_pos + Vector2(3, 2.2), 1.8, Color(0.1, 0.1, 0.15))
+	draw_circle(head_pos + Vector2(3.5, -2.2), 0.7, Color(0.4, 0.9, 1.0))
+	draw_circle(head_pos + Vector2(3.5, 2.2), 0.7, Color(0.4, 0.9, 1.0))
+
+func _draw_skull() -> void:
+	draw_circle(Vector2(-3, 0), 16.0, Color(0.95, 0.95, 0.9))
+	var jaw_pts = PackedVector2Array([
+		Vector2(-3, -10),
+		Vector2(15, -7),
+		Vector2(15, 7),
+		Vector2(-3, 10)
+	])
+	draw_polygon(jaw_pts, PackedColorArray([Color(0.9, 0.9, 0.85)]))
+	var left_socket = Vector2(5, -6)
+	var right_socket = Vector2(5, 6)
+	draw_circle(left_socket, 4.0, Color(0.08, 0.08, 0.08))
+	draw_circle(right_socket, 4.0, Color(0.08, 0.08, 0.08))
+	var pupil_pulse = 1.2 + sin(_heart_beat_timer * 8.0) * 0.4
+	draw_circle(left_socket + Vector2(1, 0), pupil_pulse, Color(0.8, 0.2, 1.0))
+	draw_circle(right_socket + Vector2(1, 0), pupil_pulse, Color(0.8, 0.2, 1.0))
+	var nose_pts = PackedVector2Array([
+		Vector2(10, 0),
+		Vector2(7, -2),
+		Vector2(7, 2)
+	])
+	draw_polygon(nose_pts, PackedColorArray([Color(0.08, 0.08, 0.08)]))
+	draw_line(Vector2(15, -5), Vector2(15, 5), Color(0.3, 0.3, 0.3), 1.5)
+	draw_line(Vector2(11, -3), Vector2(15, -3), Color(0.4, 0.4, 0.4), 1.0)
+	draw_line(Vector2(11, 0), Vector2(15, 0), Color(0.4, 0.4, 0.4), 1.0)
+	draw_line(Vector2(11, 3), Vector2(15, 3), Color(0.4, 0.4, 0.4), 1.0)
+
+func _draw_heart() -> void:
+	var scale_factor: float = 1.0 + abs(sin(_heart_beat_timer * 5.0)) * 0.1
+	draw_circle(Vector2(-3, -4) * scale_factor, 13.0 * scale_factor, Color(0.8, 0.05, 0.08))
+	draw_circle(Vector2(-3, 4) * scale_factor, 11.5 * scale_factor, Color(0.65, 0.02, 0.05))
+	var apex_pts = PackedVector2Array([
+		Vector2(-3, -11) * scale_factor,
+		Vector2(-16, 0) * scale_factor,
+		Vector2(-3, 11) * scale_factor
+	])
+	draw_polygon(apex_pts, PackedColorArray([Color(0.7, 0.03, 0.06)]))
+	draw_line(Vector2(-3, -5) * scale_factor, Vector2(13, -7) * scale_factor, Color(0.48, 0.15, 0.45), 4.5 * scale_factor)
+	draw_line(Vector2(-3, 5) * scale_factor, Vector2(11, 7) * scale_factor, Color(0.4, 0.12, 0.4), 5.0 * scale_factor)
+	var pulse_bright = 0.7 + sin(_heart_beat_timer * 12.0) * 0.3
+	var vein_color = Color(1.0, 0.35 * pulse_bright, 0.1 * pulse_bright)
+	draw_line(Vector2(-10, 0), Vector2(-2, -3), vein_color, 1.2)
+	draw_line(Vector2(-2, -3), Vector2(4, -5), vein_color, 1.2)
+	draw_line(Vector2(-10, 0), Vector2(-4, 3), vein_color, 1.0)
+	draw_line(Vector2(-4, 3), Vector2(2, 5), vein_color, 1.0)
+
+func _draw_cyborg() -> void:
+	draw_circle(Vector2.ZERO, 14.0, Color(0.22, 0.24, 0.28))
+	draw_arc(Vector2.ZERO, 14.0, 0, TAU, 32, Color(0.5, 0.55, 0.6), 2.5)
+	draw_circle(Vector2(2, 0), 8.0, Color(0.12, 0.14, 0.16))
+	draw_line(Vector2(-9, -6), Vector2(1, -6), Color(0.1, 0.85, 1.0, 0.85), 1.2)
+	draw_line(Vector2(1, -6), Vector2(6, -1), Color(0.1, 0.85, 1.0, 0.85), 1.2)
+	draw_line(Vector2(-9, 6), Vector2(1, 6), Color(0.1, 0.85, 1.0, 0.85), 1.2)
+	draw_line(Vector2(1, 6), Vector2(6, 1), Color(0.1, 0.85, 1.0, 0.85), 1.2)
+	var scan_offset = sin(_heart_beat_timer * 7.0) * 4.0
+	var scan_pos = Vector2(8.0, scan_offset)
+	draw_circle(scan_pos, 2.2, Color(1.0, 0.1, 0.15))
+
+func _draw_prototype() -> void:
+	var frame_pts = PackedVector2Array([
+		Vector2(14, 0),
+		Vector2(4, -11),
+		Vector2(-11, -11),
+		Vector2(-14, -5),
+		Vector2(-14, 5),
+		Vector2(-11, 11),
+		Vector2(4, 11)
+	])
+	draw_polygon(frame_pts, PackedColorArray([Color(0.85, 0.72, 0.08)]))
+	draw_line(Vector2(-6, -11), Vector2(-11, -6), Color(0.1, 0.1, 0.1), 2.0)
+	draw_line(Vector2(-1, -11), Vector2(-9, -3), Color(0.1, 0.1, 0.1), 2.0)
+	draw_line(Vector2(4, -11), Vector2(-7, 0), Color(0.1, 0.1, 0.1), 2.0)
+	draw_line(Vector2(-6, 11), Vector2(-11, 6), Color(0.1, 0.1, 0.1), 2.0)
+	draw_line(Vector2(-1, 11), Vector2(-9, 3), Color(0.1, 0.1, 0.1), 2.0)
+	draw_line(Vector2(4, 11), Vector2(-7, 0), Color(0.1, 0.1, 0.1), 2.0)
+	draw_rect(Rect2(7, -8, 9, 2.5), Color(0.22, 0.22, 0.22))
+	draw_rect(Rect2(7, 5.5, 9, 2.5), Color(0.22, 0.22, 0.22))
+	var pulse_core = 3.5 + sin(_heart_beat_timer * 15.0) * 1.0
+	draw_circle(Vector2(-2, 0), pulse_core, Color(0.2, 0.9, 0.35))
+	draw_circle(Vector2(-2, 0), 1.8, Color(0.8, 1.0, 0.85))
+
+func _draw_zombiefied_giant() -> void:
+	draw_circle(Vector2(-4, 0), 20.0, Color(0.2, 0.55, 0.25))
+	draw_circle(Vector2(-2, -15), 9.0, Color(0.15, 0.45, 0.2))
+	draw_circle(Vector2(-2, 15), 9.0, Color(0.15, 0.45, 0.2))
+	draw_line(Vector2(-2, -15), Vector2(15, -16), Color(0.15, 0.45, 0.2), 7.0)
+	draw_line(Vector2(-2, 15), Vector2(15, 16), Color(0.15, 0.45, 0.2), 7.0)
+	draw_line(Vector2(-10, -5), Vector2(-6, -5), Color(0.9, 0.9, 0.85), 1.8)
+	draw_line(Vector2(-11, 0), Vector2(-5, 0), Color(0.9, 0.9, 0.85), 1.8)
+	draw_line(Vector2(-10, 5), Vector2(-6, 5), Color(0.9, 0.9, 0.85), 1.8)
+	draw_circle(Vector2(-8, -8), 4.0, Color(0.35, 0.32, 0.15))
+	draw_circle(Vector2(-1, 7), 5.0, Color(0.35, 0.32, 0.15))
+
+func _draw_fake_true_giant() -> void:
+	var rock_pts = PackedVector2Array([
+		Vector2(16, 0),
+		Vector2(5, -15),
+		Vector2(-14, -12),
+		Vector2(-14, 12),
+		Vector2(5, 15)
+	])
+	draw_polygon(rock_pts, PackedColorArray([Color(0.22, 0.2, 0.2)]))
+	draw_line(Vector2(-14, 0), Vector2(16, 0), Color(1.0, 0.45, 0.0), 1.5)
+	draw_line(Vector2(-14, -6), Vector2(5, -15), Color(1.0, 0.45, 0.0), 1.2)
+	draw_line(Vector2(-14, 6), Vector2(5, 15), Color(1.0, 0.45, 0.0), 1.2)
+	draw_line(Vector2(5, -15), Vector2(0, 0), Color(1.0, 0.45, 0.0), 1.2)
+	draw_line(Vector2(5, 15), Vector2(0, 0), Color(1.0, 0.45, 0.0), 1.2)
+	var pulse_core = 6.0 + sin(_heart_beat_timer * 8.0) * 1.5
+	draw_circle(Vector2(0, 0), pulse_core, Color(1.0, 0.5, 0.05))
+	draw_circle(Vector2(0, 0), 2.5, Color(1.0, 0.85, 0.2))
 
 func _add_boss_effects(type: String) -> void:
 	var particles := CPUParticles2D.new()
